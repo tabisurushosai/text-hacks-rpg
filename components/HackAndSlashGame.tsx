@@ -289,12 +289,26 @@ export function HackAndSlashGame() {
   const p = game.player;
   const inCombat = game.phase === "combat" && game.enemy;
 
-  const btnBase =
-    "rounded border px-3 py-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-40";
+  const btnCore =
+    "touch-manipulation rounded border px-2 py-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-40 sm:px-3";
 
+  /** スマホで親指位置をそろえるメイン用（セルいっぱい・高さ確保） */
+  const btnClassGrid = (selected: boolean) =>
+    [
+      btnCore,
+      "min-h-[48px] w-full sm:min-h-0",
+      "border-[var(--border)] bg-[var(--panel)] text-[var(--text)]",
+      "hover:border-[var(--accent)] hover:bg-[#24303d]",
+      selected
+        ? "ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-[var(--bg)]"
+        : "",
+    ].join(" ");
+
+  /** クラフト・魔法・道具など可変行 */
   const btnClass = (selected: boolean) =>
     [
-      btnBase,
+      btnCore,
+      "min-h-[44px] sm:min-h-0",
       "border-[var(--border)] bg-[var(--panel)] text-[var(--text)]",
       "hover:border-[var(--accent)] hover:bg-[#24303d]",
       selected
@@ -351,13 +365,16 @@ export function HackAndSlashGame() {
       );
     }
 
+    const padSecondRow =
+      game.exploreMenu === "main" && actions.length === 2;
+
     return (
-      <div className="flex flex-wrap gap-2" role="group" aria-label="行動">
+      <div className="grid grid-cols-2 gap-2" role="group" aria-label="行動">
         {actions.map((a, i) => (
           <button
             key={a.key}
             type="button"
-            className={btnClass(i === selectedIndex)}
+            className={btnClassGrid(i === selectedIndex)}
             disabled={a.disabled}
             aria-current={i === selectedIndex ? "true" : undefined}
             onClick={() => {
@@ -368,6 +385,12 @@ export function HackAndSlashGame() {
             {a.label}
           </button>
         ))}
+        {padSecondRow ? (
+          <>
+            <div className="min-h-[48px] sm:min-h-0" aria-hidden />
+            <div className="min-h-[48px] sm:min-h-0" aria-hidden />
+          </>
+        ) : null}
       </div>
     );
   };
@@ -381,12 +404,12 @@ export function HackAndSlashGame() {
 
     if (game.combatMenu === "main") {
       return (
-        <div className="flex flex-wrap gap-2" role="group" aria-label="戦闘コマンド">
+        <div className="grid grid-cols-2 gap-2" role="group" aria-label="戦闘コマンド">
           {actions.map((a, i) => (
             <button
               key={a.key}
               type="button"
-              className={btnClass(i === selectedIndex)}
+              className={btnClassGrid(i === selectedIndex)}
               disabled={a.disabled}
               aria-current={i === selectedIndex ? "true" : undefined}
               onClick={() => {

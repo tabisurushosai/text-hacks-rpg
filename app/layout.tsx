@@ -1,9 +1,15 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "テキストハクスラ",
   description: "ブラウザで遊べるテキスト主体のハクスラRPG",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#0f1419",
 };
 
 export default function RootLayout({
