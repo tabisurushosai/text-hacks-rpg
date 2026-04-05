@@ -534,9 +534,15 @@ export function HackAndSlashGame() {
         <div ref={logEndRef} />
       </section>
 
-      <nav className="mt-3 shrink-0 space-y-2" aria-label="操作">
+      <nav
+        className="mt-3 shrink-0 space-y-2"
+        aria-label="操作"
+      >
         <p className="text-xs text-[var(--muted)]">行動</p>
-        {renderButtons()}
+        {/* 探索2行・戦闘2行で同じ最小高さ → ステータス伸縮時もボタン位置が揃う */}
+        <div className="min-h-[7.25rem] content-start sm:min-h-0">
+          {renderButtons()}
+        </div>
       </nav>
 
       <section
@@ -582,15 +588,19 @@ export function HackAndSlashGame() {
               : p.inventory.map((it) => formatStack(it.name, it.count)).join("、")}
           </p>
         </div>
-        {inCombat && (
-          <div className="mt-2 border-t border-[var(--border)] pt-2 text-[var(--text)]">
-            <p className="text-xs text-[var(--muted)]">敵</p>
-            <p>
-              {game.enemy!.name} — HP {game.enemy!.hp}/{game.enemy!.maxHp}
-              {game.enemy!.isBoss ? "（ボス）" : ""}
-            </p>
-          </div>
-        )}
+        <div className="mt-2 min-h-[3.25rem] border-t border-[var(--border)] pt-2 text-[var(--text)]">
+          <p className="text-xs text-[var(--muted)]">敵</p>
+          <p className="text-sm leading-snug">
+            {inCombat ? (
+              <>
+                {game.enemy!.name} — HP {game.enemy!.hp}/{game.enemy!.maxHp}
+                {game.enemy!.isBoss ? "（ボス）" : ""}
+              </>
+            ) : (
+              <span className="text-[var(--muted)]">―</span>
+            )}
+          </p>
+        </div>
       </section>
 
       <footer className="mt-3 shrink-0 space-y-2 pb-[env(safe-area-inset-bottom)] text-center">
