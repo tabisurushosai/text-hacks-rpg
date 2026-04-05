@@ -505,33 +505,31 @@ export function HackAndSlashGame() {
       const iDescend = descendA ? actions.indexOf(descendA) : -1;
 
       return (
-        <div className="space-y-2" role="group" aria-label="行動">
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              className={btnClassGrid(selectedIndex === iExplore)}
-              disabled={exploreA.disabled}
-              aria-current={selectedIndex === iExplore ? "true" : undefined}
-              onClick={() => {
-                setSelectedIndex(iExplore);
-                if (!exploreA.disabled) exploreA.onActivate();
-              }}
-            >
-              {exploreA.label}
-            </button>
-            <button
-              type="button"
-              className={btnClassGrid(selectedIndex === iCraft)}
-              disabled={craftA.disabled}
-              aria-current={selectedIndex === iCraft ? "true" : undefined}
-              onClick={() => {
-                setSelectedIndex(iCraft);
-                if (!craftA.disabled) craftA.onActivate();
-              }}
-            >
-              {craftA.label}
-            </button>
-          </div>
+        <div className="grid grid-cols-2 gap-2" role="group" aria-label="行動">
+          <button
+            type="button"
+            className={btnClassGrid(selectedIndex === iExplore)}
+            disabled={exploreA.disabled}
+            aria-current={selectedIndex === iExplore ? "true" : undefined}
+            onClick={() => {
+              setSelectedIndex(iExplore);
+              if (!exploreA.disabled) exploreA.onActivate();
+            }}
+          >
+            {exploreA.label}
+          </button>
+          <button
+            type="button"
+            className={btnClassGrid(selectedIndex === iCraft)}
+            disabled={craftA.disabled}
+            aria-current={selectedIndex === iCraft ? "true" : undefined}
+            onClick={() => {
+              setSelectedIndex(iCraft);
+              if (!craftA.disabled) craftA.onActivate();
+            }}
+          >
+            {craftA.label}
+          </button>
           <button
             type="button"
             className={btnClassGrid(selectedIndex === iUse)}
@@ -558,7 +556,12 @@ export function HackAndSlashGame() {
             >
               {descendA.label}
             </button>
-          ) : null}
+          ) : (
+            <div
+              className="min-h-[48px] sm:min-h-0"
+              aria-hidden
+            />
+          )}
         </div>
       );
     }
@@ -687,9 +690,6 @@ export function HackAndSlashGame() {
             <h1 className="text-base font-medium tracking-tight text-[var(--text)]">
               テキストハクスラ
             </h1>
-            <p className="text-xs text-[var(--muted)]">
-              ログは下に追記。矢印で選択、Enter か Space で決定。
-            </p>
           </div>
           <button
             type="button"
@@ -709,7 +709,7 @@ export function HackAndSlashGame() {
 
       <section
         ref={logWrapRef}
-        className="min-h-0 flex-1 overflow-y-auto rounded border border-[var(--border)] bg-[var(--panel)] px-3 py-2"
+        className="min-h-0 max-sm:min-h-[min(46dvh,22rem)] flex-1 overflow-y-auto rounded border border-[var(--border)] bg-[var(--panel)] px-3 py-2"
         aria-label="探索・戦闘ログ"
       >
         <ul className="space-y-1.5 text-sm leading-relaxed text-[var(--text)]">
@@ -727,7 +727,7 @@ export function HackAndSlashGame() {
         aria-label="操作"
       >
         <p className="text-xs text-[var(--muted)]">行動</p>
-        {/* 探索2行・戦闘2行で同じ最小高さ → ステータス伸縮時もボタン位置が揃う */}
+        {/* 探索・戦闘の基本メニューは 2×2。サブメニュー時は可変 */}
         <div className="min-h-[7.25rem] content-start sm:min-h-0">
           {renderButtons()}
         </div>
@@ -776,19 +776,6 @@ export function HackAndSlashGame() {
               : p.inventory.map((it) => formatStack(it.name, it.count)).join("、")}
           </p>
         </div>
-        <div className="mt-2 min-h-[3.25rem] border-t border-[var(--border)] pt-2 text-[var(--text)]">
-          <p className="text-xs text-[var(--muted)]">敵</p>
-          <p className="text-sm leading-snug">
-            {inCombat ? (
-              <>
-                {game.enemy!.name} — HP {game.enemy!.hp}/{game.enemy!.maxHp}
-                {game.enemy!.isBoss ? "（ボス）" : ""}
-              </>
-            ) : (
-              <span className="text-[var(--muted)]">―</span>
-            )}
-          </p>
-        </div>
       </section>
 
       <footer className="mt-3 shrink-0 space-y-2 pb-[env(safe-area-inset-bottom)] text-center">
@@ -805,9 +792,6 @@ export function HackAndSlashGame() {
           aria-label="交戦回数（この周回の通算）"
         >
           交戦回数 {game.totalBattlesFought}
-          <span className="mt-0.5 block text-[10px] opacity-80">
-            少ないほど無駄な戦いが少ない、という数え方もある。
-          </span>
         </p>
       </footer>
     </div>
