@@ -11,6 +11,8 @@ import {
 } from "react";
 import {
   CRAFT_COST,
+  formatWeaponEquipLine,
+  inventoryWeaponTitle,
   ITEM_HERB,
   ITEM_MANA_HERB,
   ITEM_MANA_POTION_MINOR,
@@ -92,8 +94,7 @@ function buildActions(
       const useEntries: ActionEntry[] = p.inventory.map((it) => ({
         key: `explore-use-${it.id}`,
         label: inventoryActionLabel(it),
-        title:
-          it.kind === "weapon" ? `攻撃補正 +${it.power}` : undefined,
+        title: inventoryWeaponTitle(it),
         onActivate: () =>
           setGame((g) => {
             const idx = g.player.inventory.findIndex((x) => x.id === it.id);
@@ -116,8 +117,7 @@ function buildActions(
       const useEntries: ActionEntry[] = p.inventory.map((it) => ({
         key: `explore-use-${it.id}`,
         label: inventoryActionLabel(it),
-        title:
-          it.kind === "weapon" ? `攻撃補正 +${it.power}` : undefined,
+        title: inventoryWeaponTitle(it),
         onActivate: () =>
           setGame((g) => {
             const idx = g.player.inventory.findIndex((x) => x.id === it.id);
@@ -229,8 +229,7 @@ function buildActions(
     const items: ActionEntry[] = p.inventory.map((it) => ({
       key: `item-${it.id}`,
       label: inventoryActionLabel(it),
-      title:
-        it.kind === "weapon" ? `攻撃補正 +${it.power}` : undefined,
+      title: inventoryWeaponTitle(it),
       onActivate: () =>
         setGame((g) => {
           const idx = g.player.inventory.findIndex((x) => x.id === it.id);
@@ -866,7 +865,9 @@ export function HackAndSlashGame() {
         </div>
         <div className="mt-2 border-t border-[var(--border)] pt-2 text-[var(--text)]">
           <p className="text-xs text-[var(--muted)]">装備</p>
-          <p>{p.weapon ? `${p.weapon.fullName}（攻撃補正 +${p.weapon.atk}）` : "素手"}</p>
+          <p>
+            {p.weapon ? formatWeaponEquipLine(p.weapon) : "素手"}
+          </p>
         </div>
         <div className="mt-2 text-[var(--text)]">
           <p className="text-xs text-[var(--muted)]">習得魔法</p>

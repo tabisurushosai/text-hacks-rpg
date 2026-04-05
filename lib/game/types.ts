@@ -1,10 +1,35 @@
-export type SpellId = "ember" | "mend";
+export type SpellId =
+  | "ember"
+  | "mend"
+  | "fireball"
+  | "frost"
+  | "spark"
+  | "thunder";
 
 export type ItemKind = "restoreHp" | "restoreMp" | "weapon";
+
+/** 武器の系統（表示・生成用。防具は無し） */
+export type WeaponCategory =
+  | "sword"
+  | "axe"
+  | "spear"
+  | "mace"
+  | "dagger"
+  | "wand";
+
+/** 武器の特殊効果（戦闘で自動発動） */
+export type WeaponSpecial =
+  | "none"
+  | "vampiric"
+  | "keen"
+  | "piercing"
+  | "twin";
 
 export interface Weapon {
   fullName: string;
   atk: number;
+  category: WeaponCategory;
+  special: WeaponSpecial;
 }
 
 export interface InventoryItem {
@@ -14,6 +39,9 @@ export interface InventoryItem {
   power: number;
   /** 同名・同種・同威力はスタック */
   count: number;
+  /** kind が weapon のときのみ */
+  weaponCategory?: WeaponCategory;
+  weaponSpecial?: WeaponSpecial;
 }
 
 export interface Player {
@@ -47,6 +75,8 @@ export interface EnemyInstance {
   def: number;
   expReward: number;
   isBoss?: boolean;
+  /** 残りターン。0 より大きいとき敵は行動できない */
+  frozenTurns?: number;
 }
 
 export type CombatMenu = "main" | "magic" | "item";

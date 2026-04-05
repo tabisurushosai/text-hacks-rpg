@@ -1,4 +1,11 @@
-import type { EnemyTemplate, SpellId } from "./types";
+import type {
+  EnemyTemplate,
+  InventoryItem,
+  SpellId,
+  Weapon,
+  WeaponCategory,
+  WeaponSpecial,
+} from "./types";
 
 /** 階ごとに5種。下の階ほど数値が上がる。 */
 export const FLOOR_NAMES: Record<number, string[]> = {
@@ -57,11 +64,37 @@ export const BOSS_TEMPLATE: EnemyTemplate = {
   expReward: 100,
 };
 
-export const WEAPON_BASES: { name: string; atk: number }[] = [
-  { name: "短剣", atk: 2 },
-  { name: "棍棒", atk: 1 },
-  { name: "長槍", atk: 3 },
-];
+export const WEAPON_CATEGORY_LABEL: Record<WeaponCategory, string> = {
+  sword: "剣",
+  axe: "斧",
+  spear: "槍",
+  mace: "打",
+  dagger: "短刀",
+  wand: "魔刃",
+};
+
+export const WEAPON_SPECIAL_LABEL: Record<WeaponSpecial, string> = {
+  none: "",
+  vampiric: "吸命",
+  keen: "心眼",
+  piercing: "貫通",
+  twin: "連閃",
+};
+
+export const WEAPON_BASES: { name: string; atk: number; category: WeaponCategory }[] =
+  [
+    { name: "短剣", atk: 2, category: "sword" },
+    { name: "長剣", atk: 3, category: "sword" },
+    { name: "手斧", atk: 3, category: "axe" },
+    { name: "双刃斧", atk: 4, category: "axe" },
+    { name: "長槍", atk: 3, category: "spear" },
+    { name: "三叉槍", atk: 2, category: "spear" },
+    { name: "棍棒", atk: 2, category: "mace" },
+    { name: "戦槌", atk: 3, category: "mace" },
+    { name: "匕首", atk: 1, category: "dagger" },
+    { name: "投げ刃", atk: 1, category: "dagger" },
+    { name: "魔導片刃", atk: 2, category: "wand" },
+  ];
 
 export const WEAPON_PREFIXES: { label: string; atk: number }[] = [
   { label: "錆びた", atk: -2 },
@@ -69,6 +102,17 @@ export const WEAPON_PREFIXES: { label: string; atk: number }[] = [
   { label: "普通の", atk: 0 },
   { label: "鋭い", atk: 2 },
   { label: "洗練された", atk: 4 },
+  { label: "呪われた", atk: -1 },
+  { label: "祝福された", atk: 3 },
+];
+
+/** 生成時に付与（none 以外は名前に付記） */
+export const WEAPON_SPECIAL_POOL: { id: WeaponSpecial; weight: number }[] = [
+  { id: "none", weight: 52 },
+  { id: "vampiric", weight: 12 },
+  { id: "keen", weight: 12 },
+  { id: "piercing", weight: 12 },
+  { id: "twin", weight: 12 },
 ];
 
 export const SPELLS: Record<
@@ -78,7 +122,27 @@ export const SPELLS: Record<
   ember: {
     label: "小火",
     mpCost: 4,
-    description: "魔力の火。物理より防に弱く突き抜ける。",
+    description: "魔力の火。防の一部を無視する。",
+  },
+  fireball: {
+    label: "火球",
+    mpCost: 7,
+    description: "防具を通さない純粋な爆炎。高威力。",
+  },
+  spark: {
+    label: "雷線",
+    mpCost: 3,
+    description: "素早い雷。MP が少なくて済む。",
+  },
+  thunder: {
+    label: "落雷",
+    mpCost: 10,
+    description: "大電流。防を無視した一撃。",
+  },
+  frost: {
+    label: "凍霧",
+    mpCost: 5,
+    description: "威力は控えめ。凍結で数ターン行動を封じることがある（ボスには効きにくい）。",
   },
   mend: {
     label: "癒し",
@@ -89,6 +153,10 @@ export const SPELLS: Record<
 
 export const SPELL_BOOKS: { name: string; spell: SpellId }[] = [
   { name: "火の綴り", spell: "ember" },
+  { name: "爆炎の綴り", spell: "fireball" },
+  { name: "雷の綴り", spell: "spark" },
+  { name: "大雷の綴り", spell: "thunder" },
+  { name: "氷の綴り", spell: "frost" },
   { name: "祈りの綴り", spell: "mend" },
 ];
 
@@ -113,4 +181,30 @@ export function nextItemId(): string {
 
 export function resetItemIdCounter(): void {
   itemSeq = 0;
+}
+
+export function rollWeaponSpecial(): WeaponSpecial {
+  const pool = WEAPON_SPECIAL_POOL;
+  const total = pool.reduce((s, x) => s + x.weight, 0);
+  let r = Math.random() * total;
+  for (const e of pool) {
+    r -= e.weight;
+    if (r <= 0) return e.id;
+  }
+  return "none";
+}
+
+export function formatWeaponEquipLine(w: Weapon): string {
+  const cat = WEAPON_CATEGORY_LABEL[w.category];
+  const sp =
+    w.special !== "none" ? `・${WEAPON_SPECIAL_LABEL[w.special]}` : "";
+  return `${w.fullName}（+${w.atk} ${cat}${sp}）`;
+}
+
+export function inventoryWeaponTitle(it: InventoryItem): string | undefined {
+  if (it.kind !== "weapon") return undefined;
+  const cat = WEAPON_CATEGORY_LABEL[it.weaponCategory ?? "sword"];
+  const sp = it.weaponSpecial ?? "none";
+  const tag = sp !== "none" ? ` ${WEAPON_SPECIAL_LABEL[sp]}` : "";
+  return `攻撃+${it.power} ${cat}${tag}`;
 }

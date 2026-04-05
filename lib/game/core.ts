@@ -15,7 +15,9 @@ import {
   WEAPON_PREFIXES,
   nextItemId,
   resetItemIdCounter,
+  rollWeaponSpecial,
   templatesForFloor,
+  WEAPON_SPECIAL_LABEL,
 } from "./data";
 import type {
   EnemyInstance,
@@ -44,11 +46,21 @@ function expToNext(level: number): number {
   return 8 + level * 6;
 }
 
+function inventoryItemsMatch(a: InventoryItem, b: InventoryItem): boolean {
+  if (a.kind !== b.kind || a.name !== b.name || a.power !== b.power) {
+    return false;
+  }
+  if (a.kind === "weapon") {
+    return (
+      (a.weaponCategory ?? "sword") === (b.weaponCategory ?? "sword") &&
+      (a.weaponSpecial ?? "none") === (b.weaponSpecial ?? "none")
+    );
+  }
+  return true;
+}
+
 function mergeInventory(inv: InventoryItem[], add: InventoryItem): InventoryItem[] {
-  const match = inv.find(
-    (x) =>
-      x.name === add.name && x.kind === add.kind && x.power === add.power,
-  );
+  const match = inv.find((x) => inventoryItemsMatch(x, add));
   if (match) {
     return inv.map((x) =>
       x.id === match.id ? { ...x, count: x.count + add.count } : x,
@@ -167,9 +179,20 @@ function spawnBoss(): EnemyInstance {
   };
 }
 
+function weaponPierceFlat(player: Player): number {
+  return player.weapon?.special === "piercing" ? 2 : 0;
+}
+
+function playerCritChance(player: Player): number {
+  const bonus = player.weapon?.special === "keen" ? 0.08 : 0;
+  return Math.min(0.42, PLAYER_CRIT_CHANCE + bonus);
+}
+
 function rollPhysicalDamage(player: Player, enemyDef: number): number {
   const w = player.weapon?.atk ?? 0;
-  const raw = player.baseAtk + w - enemyDef + Math.floor(Math.random() * 3);
+  const pierce = weaponPierceFlat(player);
+  const effDef = Math.max(0, enemyDef - pierce);
+  const raw = player.baseAtk + w - effDef + Math.floor(Math.random() * 3);
   return clamp(raw, 1, 999);
 }
 
@@ -200,15 +223,30 @@ function maybeLevelUp(player: Player, lines: string[]): Player {
 }
 
 function generateWeapon(): Weapon {
-  for (let n = 0; n < 48; n++) {
+  for (let n = 0; n < 64; n++) {
     const base = pick(WEAPON_BASES);
     const pre = pick(WEAPON_PREFIXES);
     const atk = base.atk + pre.atk;
     if (atk >= 1) {
-      return { fullName: `${pre.label}${base.name}`, atk };
+      const special = rollWeaponSpecial();
+      let fullName = `${pre.label}${base.name}`;
+      if (special !== "none") {
+        fullName += `・${WEAPON_SPECIAL_LABEL[special]}`;
+      }
+      return {
+        fullName,
+        atk,
+        category: base.category,
+        special,
+      };
     }
   }
-  return { fullName: "木片の短剣", atk: 1 };
+  return {
+    fullName: "木片の短剣",
+    atk: 1,
+    category: "sword",
+    special: "none",
+  };
 }
 
 function addLootItem(
@@ -222,6 +260,10 @@ function addLootItem(
     power: item.power,
     count: item.count ?? 1,
   };
+  if (item.kind === "weapon") {
+    stack.weaponCategory = item.weaponCategory;
+    stack.weaponSpecial = item.weaponSpecial;
+  }
   return {
     ...player,
     inventory: mergeInventory(player.inventory, stack),
@@ -238,6 +280,8 @@ function rollDrops(player: Player, lines: string[]): Player {
       kind: "weapon",
       power: w.atk,
       count: 1,
+      weaponCategory: w.category,
+      weaponSpecial: w.special,
     });
     lines.push(`${w.fullName}を拾った。所持品に入れた。`);
   }
@@ -665,6 +709,20 @@ function endCombatVictory(state: GameState, lines: string[]): GameState {
 function enemyTurn(state: GameState, lines: string[]): GameState {
   const enemy = state.enemy;
   if (!enemy || enemy.hp <= 0) return state;
+  const frozen = enemy.frozenTurns ?? 0;
+  if (frozen > 0) {
+    lines.push(`${enemy.name}は凍りついている。`);
+    const nextEnemy: EnemyInstance = {
+      ...enemy,
+      frozenTurns: frozen - 1,
+    };
+    if (nextEnemy.frozenTurns === 0) delete nextEnemy.frozenTurns;
+    return {
+      ...state,
+      enemy: nextEnemy,
+      log: [...state.log, ...lines],
+    };
+  }
   if (Math.random() < ENEMY_ATTACK_MISS_CHANCE) {
     lines.push(`${enemy.name}の攻撃。外れた。`);
     return {
@@ -690,6 +748,7 @@ export function combatFight(state: GameState): GameState {
   const s = withBossTurnIncrement(state);
   const lines: string[] = [];
   const enemy = { ...s.enemy! };
+  let player = s.player;
 
   if (Math.random() < PLAYER_ATTACK_MISS_CHANCE) {
     lines.push("ミスした。");
@@ -697,17 +756,49 @@ export function combatFight(state: GameState): GameState {
     return enemyTurn(next, []);
   }
 
-  let dmg = rollPhysicalDamage(s.player, enemy.def);
-  if (Math.random() < PLAYER_CRIT_CHANCE) {
+  let totalDealt = 0;
+
+  let dmg = rollPhysicalDamage(player, enemy.def);
+  if (Math.random() < playerCritChance(player)) {
     dmg = Math.max(1, Math.floor(dmg * 2));
     lines.push("会心の一撃。");
   }
   enemy.hp = clamp(enemy.hp - dmg, 0, enemy.maxHp);
+  totalDealt += dmg;
   lines.push(`${dmg}のダメージを与えた。`);
-  if (enemy.hp <= 0) {
-    return endCombatVictory({ ...s, enemy }, lines);
+
+  if (
+    player.weapon?.special === "twin" &&
+    enemy.hp > 0 &&
+    Math.random() < 0.22
+  ) {
+    let dmg2 = rollPhysicalDamage(player, enemy.def);
+    if (Math.random() < playerCritChance(player)) {
+      dmg2 = Math.max(1, Math.floor(dmg2 * 2));
+      lines.push("会心の追撃。");
+    }
+    dmg2 = Math.max(1, Math.floor(dmg2 * 0.55));
+    enemy.hp = clamp(enemy.hp - dmg2, 0, enemy.maxHp);
+    totalDealt += dmg2;
+    lines.push(`連閃。さらに${dmg2}のダメージ。`);
   }
-  const next: GameState = { ...s, enemy, log: [...s.log, ...lines] };
+
+  if (player.weapon?.special === "vampiric" && totalDealt > 0) {
+    const leech = Math.max(
+      1,
+      Math.floor(totalDealt * 0.12 + Math.floor(Math.random() * 2)),
+    );
+    const nh = clamp(player.hp + leech, 0, player.maxHp);
+    if (nh > player.hp) {
+      lines.push(`吸命でHPが${nh - player.hp}回復した。`);
+      player = { ...player, hp: nh };
+    }
+  }
+
+  if (enemy.hp <= 0) {
+    return endCombatVictory({ ...s, player, enemy }, lines);
+  }
+  const next: GameState = { ...s, player, enemy, log: [...s.log, ...lines] };
   return enemyTurn(next, []);
 }
 
@@ -727,23 +818,72 @@ export function combatMagic(state: GameState, spell: SpellId): GameState {
   const lines: string[] = [];
   let player = { ...s.player, mp: s.player.mp - cost };
   const enemy = { ...s.enemy! };
+  const floor = state.floor;
+  const lv = player.level;
+
+  const applyMagicDamage = (dmg: number, msg: string) => {
+    enemy.hp = clamp(enemy.hp - dmg, 0, enemy.maxHp);
+    lines.push(`${msg}${dmg}のダメージ。`);
+  };
 
   if (spell === "ember") {
-    const floor = state.floor;
     const raw =
       8 +
       Math.floor(Math.random() * 7) +
-      Math.floor(player.level * 1.5) +
+      Math.floor(lv * 1.5) +
       Math.floor(floor * 0.45);
     const pierce = Math.floor(enemy.def * 0.45);
     const dmg = Math.max(2, raw - pierce);
-    enemy.hp = clamp(enemy.hp - dmg, 0, enemy.maxHp);
-    lines.push(`小火を放った。${dmg}のダメージ。`);
-  } else {
+    applyMagicDamage(dmg, "小火を放った。");
+  } else if (spell === "fireball") {
+    const raw =
+      14 +
+      Math.floor(Math.random() * 9) +
+      Math.floor(lv * 2.1) +
+      Math.floor(floor * 0.55);
+    const dmg = Math.max(4, raw);
+    applyMagicDamage(dmg, "火球が炸裂した。");
+  } else if (spell === "spark") {
+    const raw =
+      4 +
+      Math.floor(Math.random() * 5) +
+      Math.floor(lv * 0.9) +
+      Math.floor(floor * 0.25);
+    const dmg = Math.max(2, raw);
+    applyMagicDamage(dmg, "雷線が走った。");
+  } else if (spell === "thunder") {
+    const raw =
+      20 +
+      Math.floor(Math.random() * 11) +
+      Math.floor(lv * 2.6) +
+      Math.floor(floor * 0.65);
+    const dmg = Math.max(6, raw);
+    applyMagicDamage(dmg, "落雷が敵を直撃した。");
+  } else if (spell === "frost") {
+    const raw =
+      5 +
+      Math.floor(Math.random() * 6) +
+      Math.floor(lv * 1.1) +
+      Math.floor(floor * 0.35);
+    const pierce = Math.floor(enemy.def * 0.25);
+    const dmg = Math.max(2, raw - pierce);
+    applyMagicDamage(dmg, "凍霧を浴びせた。");
+    if (!enemy.isBoss) {
+      if (Math.random() < 0.4) {
+        const t = 1 + Math.floor(Math.random() * 3);
+        const prev = enemy.frozenTurns ?? 0;
+        enemy.frozenTurns = Math.max(prev, t);
+        lines.push(`${enemy.name}は身動きがとれない（あと${enemy.frozenTurns}ターン）。`);
+      }
+    } else if (Math.random() < 0.14) {
+      enemy.frozenTurns = Math.max(enemy.frozenTurns ?? 0, 1);
+      lines.push(`${enemy.name}の動きが一瞬鈍った。`);
+    }
+  } else if (spell === "mend") {
     const heal =
       12 +
       Math.floor(Math.random() * 7) +
-      Math.floor(player.level * 0.85);
+      Math.floor(lv * 0.85);
     const nh = clamp(player.hp + heal, 0, player.maxHp);
     lines.push(`癒しを唱えた。HPが${nh - player.hp}回復した。`);
     player = { ...player, hp: nh };
@@ -786,7 +926,12 @@ function equipWeaponFromInventoryPlayer(
   let p: Player = {
     ...player,
     inventory: inv,
-    weapon: { fullName: item.name, atk: item.power },
+    weapon: {
+      fullName: item.name,
+      atk: item.power,
+      category: item.weaponCategory ?? "sword",
+      special: item.weaponSpecial ?? "none",
+    },
   };
   const parts: string[] = [`${item.name}を装備した。`];
   if (old) {
@@ -795,6 +940,8 @@ function equipWeaponFromInventoryPlayer(
       kind: "weapon",
       power: old.atk,
       count: 1,
+      weaponCategory: old.category,
+      weaponSpecial: old.special,
     });
     parts.push(`手放した${old.fullName}は所持品に入れた。`);
   }
