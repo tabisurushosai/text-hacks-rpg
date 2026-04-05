@@ -53,7 +53,7 @@ export type CombatMenu = "main" | "magic" | "item";
 
 export type GamePhase = "explore" | "combat";
 
-export type ExploreMenu = "main" | "craft";
+export type ExploreMenu = "main" | "craft" | "use";
 
 export interface GameState {
   phase: GamePhase;

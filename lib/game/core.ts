@@ -4,7 +4,11 @@ import {
   ITEM_HERB,
   ITEM_MANA_HERB,
   ITEM_MANA_POTION_MINOR,
+  ITEM_MANA_POTION_MEDIUM,
   ITEM_POTION_MINOR,
+  ITEM_POTION_MEDIUM,
+  POTION_MEDIUM_HP_POWER,
+  POTION_MEDIUM_MP_POWER,
   SPELL_BOOKS,
   SPELLS,
   WEAPON_BASES,
@@ -275,7 +279,6 @@ function withBossTurnIncrement(state: GameState): GameState {
 
 export function explore(state: GameState): GameState {
   if (state.phase !== "explore") return state;
-  if (state.stairsVisible) return state;
 
   const lines: string[] = [];
   const f = state.floor;
@@ -475,6 +478,15 @@ export function closeCraftMenu(state: GameState): GameState {
   return { ...state, exploreMenu: "main" };
 }
 
+export function openUseItemMenu(state: GameState): GameState {
+  if (state.phase !== "explore") return state;
+  return { ...state, exploreMenu: "use" };
+}
+
+export function closeUseItemMenu(state: GameState): GameState {
+  return { ...state, exploreMenu: "main" };
+}
+
 function craft(
   state: GameState,
   materialName: string,
@@ -538,6 +550,81 @@ export function craftMinorMpPotion(state: GameState): GameState {
     22,
     "魔力草を束ねて初級魔力ポーションにした。",
   );
+}
+
+export function craftMediumHpPotion(state: GameState): GameState {
+  if (state.phase !== "explore") return state;
+  if (countByName(state.player.inventory, ITEM_POTION_MINOR) < CRAFT_COST) {
+    return {
+      ...state,
+      log: [...state.log, "初級ポーションが足りない。"],
+    };
+  }
+  const consumed = consumeNamed(
+    state.player.inventory,
+    ITEM_POTION_MINOR,
+    CRAFT_COST,
+  );
+  if (!consumed) {
+    return {
+      ...state,
+      log: [...state.log, "初級ポーションが足りない。"],
+    };
+  }
+  let p: Player = {
+    ...state.player,
+    inventory: consumed,
+  };
+  p = addLootItem(p, {
+    name: ITEM_POTION_MEDIUM,
+    kind: "restoreHp",
+    power: POTION_MEDIUM_HP_POWER,
+    count: 1,
+  });
+  return {
+    ...state,
+    player: p,
+    log: [...state.log, "初級ポーションを5つ練り直し、中級ポーションにした。"],
+  };
+}
+
+export function craftMediumMpPotion(state: GameState): GameState {
+  if (state.phase !== "explore") return state;
+  if (countByName(state.player.inventory, ITEM_MANA_POTION_MINOR) < CRAFT_COST) {
+    return {
+      ...state,
+      log: [...state.log, "初級魔力ポーションが足りない。"],
+    };
+  }
+  const consumed = consumeNamed(
+    state.player.inventory,
+    ITEM_MANA_POTION_MINOR,
+    CRAFT_COST,
+  );
+  if (!consumed) {
+    return {
+      ...state,
+      log: [...state.log, "初級魔力ポーションが足りない。"],
+    };
+  }
+  let p: Player = {
+    ...state.player,
+    inventory: consumed,
+  };
+  p = addLootItem(p, {
+    name: ITEM_MANA_POTION_MEDIUM,
+    kind: "restoreMp",
+    power: POTION_MEDIUM_MP_POWER,
+    count: 1,
+  });
+  return {
+    ...state,
+    player: p,
+    log: [
+      ...state.log,
+      "初級魔力ポーションを5つ練り直し、中級魔力ポーションにした。",
+    ],
+  };
 }
 
 function endCombatVictory(state: GameState, lines: string[]): GameState {
@@ -636,11 +723,21 @@ export function combatMagic(state: GameState, spell: SpellId): GameState {
   const enemy = { ...s.enemy! };
 
   if (spell === "ember") {
-    const dmg = 4 + Math.floor(Math.random() * 4) + Math.floor(player.level / 2);
+    const floor = state.floor;
+    const raw =
+      8 +
+      Math.floor(Math.random() * 7) +
+      Math.floor(player.level * 1.5) +
+      Math.floor(floor * 0.45);
+    const pierce = Math.floor(enemy.def * 0.45);
+    const dmg = Math.max(2, raw - pierce);
     enemy.hp = clamp(enemy.hp - dmg, 0, enemy.maxHp);
     lines.push(`小火を放った。${dmg}のダメージ。`);
   } else {
-    const heal = 8 + Math.floor(Math.random() * 5) + Math.floor(player.level / 2);
+    const heal =
+      12 +
+      Math.floor(Math.random() * 7) +
+      Math.floor(player.level * 0.85);
     const nh = clamp(player.hp + heal, 0, player.maxHp);
     lines.push(`癒しを唱えた。HPが${nh - player.hp}回復した。`);
     player = { ...player, hp: nh };

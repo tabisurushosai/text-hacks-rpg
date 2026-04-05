@@ -75,8 +75,16 @@ export const SPELLS: Record<
   SpellId,
   { label: string; mpCost: number; description: string }
 > = {
-  ember: { label: "小火", mpCost: 5, description: "小さな火で攻撃する。" },
-  mend: { label: "癒し", mpCost: 6, description: "体力を少し回復する。" },
+  ember: {
+    label: "小火",
+    mpCost: 4,
+    description: "魔力の火。物理より防に弱く突き抜ける。",
+  },
+  mend: {
+    label: "癒し",
+    mpCost: 5,
+    description: "体力をしっかり回復する。",
+  },
 };
 
 export const SPELL_BOOKS: { name: string; spell: SpellId }[] = [
@@ -90,6 +98,12 @@ export const ITEM_HERB = "薬草";
 export const ITEM_MANA_HERB = "魔力草";
 export const ITEM_POTION_MINOR = "初級ポーション";
 export const ITEM_MANA_POTION_MINOR = "初級魔力ポーション";
+export const ITEM_POTION_MEDIUM = "中級ポーション";
+export const ITEM_MANA_POTION_MEDIUM = "中級魔力ポーション";
+
+/** 初級ポーション5つを1つの中級にまとめたときの回復量（max までクリップ） */
+export const POTION_MEDIUM_HP_POWER = 120;
+export const POTION_MEDIUM_MP_POWER = 95;
 
 let itemSeq = 0;
 export function nextItemId(): string {

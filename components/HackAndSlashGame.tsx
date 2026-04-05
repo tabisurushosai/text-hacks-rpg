@@ -13,22 +13,27 @@ import {
   CRAFT_COST,
   ITEM_HERB,
   ITEM_MANA_HERB,
+  ITEM_MANA_POTION_MINOR,
+  ITEM_POTION_MINOR,
   SPELLS,
 } from "@/lib/game/data";
 import {
   closeCraftMenu,
+  closeUseItemMenu,
   combatFight,
   combatItem,
   combatMagic,
   combatRun,
   countMaterial,
+  craftMediumHpPotion,
+  craftMediumMpPotion,
   craftMinorHpPotion,
   craftMinorMpPotion,
   descendStairs,
-  dismissStairs,
   explore,
   initialGameState,
   openCraftMenu,
+  openUseItemMenu,
   useItemExplore,
 } from "@/lib/game/core";
 import type { GameState, SpellId } from "@/lib/game/types";
@@ -48,25 +53,12 @@ function buildActions(
   const inCombat = game.phase === "combat" && game.enemy;
 
   if (game.phase === "explore") {
-    if (game.stairsVisible) {
-      return [
-        {
-          key: "stay",
-          label: "とどまる",
-          onActivate: () => setGame((g) => dismissStairs(g)),
-        },
-        {
-          key: "descend",
-          label: "階段を下りる",
-          onActivate: () => setGame((g) => descendStairs(g)),
-        },
-      ];
-    }
-
     if (game.exploreMenu === "craft") {
       const herbs = countMaterial(game, ITEM_HERB);
       const manaHerbs = countMaterial(game, ITEM_MANA_HERB);
-      const crafts: ActionEntry[] = [
+      const minorHp = countMaterial(game, ITEM_POTION_MINOR);
+      const minorMp = countMaterial(game, ITEM_MANA_POTION_MINOR);
+      const craftsHerb: ActionEntry[] = [
         {
           key: "craft-hp",
           label: `初級ポーション（${ITEM_HERB}${CRAFT_COST}）`,
@@ -80,6 +72,20 @@ function buildActions(
           onActivate: () => setGame((g) => craftMinorMpPotion(g)),
         },
       ];
+      const craftsTier: ActionEntry[] = [
+        {
+          key: "craft-hp-med",
+          label: `中級ポーション（${ITEM_POTION_MINOR}×${CRAFT_COST}）`,
+          disabled: minorHp < CRAFT_COST,
+          onActivate: () => setGame((g) => craftMediumHpPotion(g)),
+        },
+        {
+          key: "craft-mp-med",
+          label: `中級魔力ポーション（${ITEM_MANA_POTION_MINOR}×${CRAFT_COST}）`,
+          disabled: minorMp < CRAFT_COST,
+          onActivate: () => setGame((g) => craftMediumMpPotion(g)),
+        },
+      ];
       const useEntries: ActionEntry[] = p.inventory.map((it) => ({
         key: `explore-use-${it.id}`,
         label: `使う：${it.count > 1 ? `${it.name}×${it.count}` : it.name}`,
@@ -90,7 +96,8 @@ function buildActions(
           }),
       }));
       return [
-        ...crafts,
+        ...craftsHerb,
+        ...craftsTier,
         ...useEntries,
         {
           key: "back-craft",
@@ -100,7 +107,27 @@ function buildActions(
       ];
     }
 
-    return [
+    if (game.exploreMenu === "use") {
+      const useEntries: ActionEntry[] = p.inventory.map((it) => ({
+        key: `explore-use-${it.id}`,
+        label: `使う：${it.count > 1 ? `${it.name}×${it.count}` : it.name}`,
+        onActivate: () =>
+          setGame((g) => {
+            const idx = g.player.inventory.findIndex((x) => x.id === it.id);
+            return useItemExplore(g, idx >= 0 ? idx : 0);
+          }),
+      }));
+      return [
+        ...useEntries,
+        {
+          key: "back-use",
+          label: "戻る",
+          onActivate: () => setGame((g) => closeUseItemMenu(g)),
+        },
+      ];
+    }
+
+    const main: ActionEntry[] = [
       {
         key: "explore",
         label: "探索する",
@@ -111,7 +138,21 @@ function buildActions(
         label: "クラフト",
         onActivate: () => setGame((g) => openCraftMenu(g)),
       },
+      {
+        key: "open-use",
+        label: "アイテムを使う",
+        disabled: p.inventory.length === 0,
+        onActivate: () => setGame((g) => openUseItemMenu(g)),
+      },
     ];
+    if (game.stairsVisible && game.floor < 10) {
+      main.push({
+        key: "descend",
+        label: "階段を降りる",
+        onActivate: () => setGame((g) => descendStairs(g)),
+      });
+    }
+    return main;
   }
 
   if (!inCombat) return [];
@@ -204,15 +245,51 @@ function formatStack(name: string, count: number): string {
   return count > 1 ? `${name}×${count}` : name;
 }
 
+/** `public/bgm/theme.mp3` を置くと /bgm/theme.mp3 として配信される */
+const GAME_BGM_SRC = "/bgm/theme.mp3";
+
 export function HackAndSlashGame() {
   const [game, setGame] = useState<GameState>(() => initialGameState());
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [bgmPlaying, setBgmPlaying] = useState(false);
+  const [bgmMissing, setBgmMissing] = useState(false);
   const selectedIndexRef = useRef(0);
   const logEndRef = useRef<HTMLDivElement>(null);
   const logWrapRef = useRef<HTMLDivElement>(null);
+  const bgmRef = useRef<HTMLAudioElement | null>(null);
   const gameRef = useRef(game);
   gameRef.current = game;
   selectedIndexRef.current = selectedIndex;
+
+  useEffect(() => {
+    const a = new Audio(GAME_BGM_SRC);
+    a.loop = true;
+    a.volume = 0.35;
+    const onError = () => setBgmMissing(true);
+    a.addEventListener("error", onError);
+    bgmRef.current = a;
+    return () => {
+      a.removeEventListener("error", onError);
+      a.pause();
+      bgmRef.current = null;
+    };
+  }, []);
+
+  const toggleBgm = useCallback(async () => {
+    const a = bgmRef.current;
+    if (!a || bgmMissing) return;
+    if (bgmPlaying) {
+      a.pause();
+      setBgmPlaying(false);
+      return;
+    }
+    try {
+      await a.play();
+      setBgmPlaying(true);
+    } catch {
+      setBgmPlaying(false);
+    }
+  }, [bgmMissing, bgmPlaying]);
 
   const actions = useMemo(() => buildActions(game, setGame), [game, setGame]);
 
@@ -318,8 +395,10 @@ export function HackAndSlashGame() {
 
   const renderExploreButtons = () => {
     if (game.exploreMenu === "craft") {
-      const craftKeys = new Set(["craft-hp", "craft-mp"]);
-      const crafts = actions.filter((a) => craftKeys.has(a.key));
+      const craftFromHerbKeys = new Set(["craft-hp", "craft-mp"]);
+      const craftTierKeys = new Set(["craft-hp-med", "craft-mp-med"]);
+      const craftsHerb = actions.filter((a) => craftFromHerbKeys.has(a.key));
+      const craftsTier = actions.filter((a) => craftTierKeys.has(a.key));
       const uses = actions.filter(
         (a) => a.key.startsWith("explore-use-"),
       );
@@ -343,9 +422,17 @@ export function HackAndSlashGame() {
       return (
         <div className="space-y-2" role="group" aria-label="クラフトと所持品">
           <div>
-            <p className="mb-1 text-xs text-[var(--muted)]">クラフト</p>
+            <p className="mb-1 text-xs text-[var(--muted)]">クラフト（草から）</p>
             <div className="flex flex-wrap gap-2">
-              {crafts.map((a) => renderBtn(a, indexOf(a.key)))}
+              {craftsHerb.map((a) => renderBtn(a, indexOf(a.key)))}
+            </div>
+          </div>
+          <div>
+            <p className="mb-1 text-xs text-[var(--muted)]">
+              精製（初級ポーション×{CRAFT_COST}→中級）
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {craftsTier.map((a) => renderBtn(a, indexOf(a.key)))}
             </div>
           </div>
           {uses.length > 0 && (
@@ -365,34 +452,118 @@ export function HackAndSlashGame() {
       );
     }
 
-    const padSecondRow =
-      game.exploreMenu === "main" && actions.length === 2;
+    if (game.exploreMenu === "use") {
+      const uses = actions.filter((a) => a.key.startsWith("explore-use-"));
+      const back = actions.find((a) => a.key === "back-use");
+      const indexOf = (key: string) => actions.findIndex((a) => a.key === key);
+      const renderBtn = (a: ActionEntry, i: number) => (
+        <button
+          key={a.key}
+          type="button"
+          className={btnClass(i === selectedIndex)}
+          disabled={a.disabled}
+          aria-current={i === selectedIndex ? "true" : undefined}
+          onClick={() => {
+            setSelectedIndex(i);
+            if (!a.disabled) a.onActivate();
+          }}
+        >
+          {a.label}
+        </button>
+      );
+      return (
+        <div className="space-y-2" role="group" aria-label="アイテム">
+          {uses.length > 0 ? (
+            <div>
+              <p className="mb-1 text-xs text-[var(--muted)]">使う</p>
+              <div className="flex flex-wrap gap-2">
+                {uses.map((a) => renderBtn(a, indexOf(a.key)))}
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs text-[var(--muted)]">所持品がない。</p>
+          )}
+          {back && (
+            <div className="pt-1">
+              {renderBtn(back, indexOf(back.key))}
+            </div>
+          )}
+        </div>
+      );
+    }
 
-    return (
-      <div className="grid grid-cols-2 gap-2" role="group" aria-label="行動">
-        {actions.map((a, i) => (
+    if (game.exploreMenu === "main") {
+      const exploreA = actions.find((a) => a.key === "explore");
+      const craftA = actions.find((a) => a.key === "craft-open");
+      const useA = actions.find((a) => a.key === "open-use");
+      const descendA = actions.find((a) => a.key === "descend");
+      if (!exploreA || !craftA || !useA) return null;
+
+      const iExplore = actions.indexOf(exploreA);
+      const iCraft = actions.indexOf(craftA);
+      const iUse = actions.indexOf(useA);
+      const iDescend = descendA ? actions.indexOf(descendA) : -1;
+
+      return (
+        <div className="space-y-2" role="group" aria-label="行動">
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              className={btnClassGrid(selectedIndex === iExplore)}
+              disabled={exploreA.disabled}
+              aria-current={selectedIndex === iExplore ? "true" : undefined}
+              onClick={() => {
+                setSelectedIndex(iExplore);
+                if (!exploreA.disabled) exploreA.onActivate();
+              }}
+            >
+              {exploreA.label}
+            </button>
+            <button
+              type="button"
+              className={btnClassGrid(selectedIndex === iCraft)}
+              disabled={craftA.disabled}
+              aria-current={selectedIndex === iCraft ? "true" : undefined}
+              onClick={() => {
+                setSelectedIndex(iCraft);
+                if (!craftA.disabled) craftA.onActivate();
+              }}
+            >
+              {craftA.label}
+            </button>
+          </div>
           <button
-            key={a.key}
             type="button"
-            className={btnClassGrid(i === selectedIndex)}
-            disabled={a.disabled}
-            aria-current={i === selectedIndex ? "true" : undefined}
+            className={btnClassGrid(selectedIndex === iUse)}
+            disabled={useA.disabled}
+            title={useA.disabled ? "所持品がありません" : undefined}
+            aria-current={selectedIndex === iUse ? "true" : undefined}
             onClick={() => {
-              setSelectedIndex(i);
-              if (!a.disabled) a.onActivate();
+              setSelectedIndex(iUse);
+              if (!useA.disabled) useA.onActivate();
             }}
           >
-            {a.label}
+            {useA.label}
           </button>
-        ))}
-        {padSecondRow ? (
-          <>
-            <div className="min-h-[48px] sm:min-h-0" aria-hidden />
-            <div className="min-h-[48px] sm:min-h-0" aria-hidden />
-          </>
-        ) : null}
-      </div>
-    );
+          {descendA && iDescend >= 0 ? (
+            <button
+              type="button"
+              className={btnClassGrid(selectedIndex === iDescend)}
+              disabled={descendA.disabled}
+              aria-current={selectedIndex === iDescend ? "true" : undefined}
+              onClick={() => {
+                setSelectedIndex(iDescend);
+                if (!descendA.disabled) descendA.onActivate();
+              }}
+            >
+              {descendA.label}
+            </button>
+          ) : null}
+        </div>
+      );
+    }
+
+    return null;
   };
 
   const renderButtons = () => {
@@ -511,12 +682,29 @@ export function HackAndSlashGame() {
   return (
     <div className="mx-auto flex h-[100dvh] max-w-lg flex-col px-3 py-3">
       <header className="mb-2 shrink-0 border-b border-[var(--border)] pb-2">
-        <h1 className="text-base font-medium tracking-tight text-[var(--text)]">
-          テキストハクスラ
-        </h1>
-        <p className="text-xs text-[var(--muted)]">
-          ログは下に追記。矢印で選択、Enter か Space で決定。
-        </p>
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h1 className="text-base font-medium tracking-tight text-[var(--text)]">
+              テキストハクスラ
+            </h1>
+            <p className="text-xs text-[var(--muted)]">
+              ログは下に追記。矢印で選択、Enter か Space で決定。
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void toggleBgm()}
+            disabled={bgmMissing}
+            className="touch-manipulation shrink-0 rounded border border-[var(--border)] bg-[var(--panel)] px-2 py-1 text-xs text-[var(--text)] transition hover:border-[var(--accent)] hover:bg-[#24303d] disabled:cursor-not-allowed disabled:opacity-40"
+            title={
+              bgmMissing
+                ? "public/bgm/theme.mp3 を置くと利用できます"
+                : "BGM の再生・停止（自動再生はブラウザ制限のためボタン操作が必要）"
+            }
+          >
+            {bgmMissing ? "BGM未設定" : bgmPlaying ? "BGM停止" : "BGM"}
+          </button>
+        </div>
       </header>
 
       <section
