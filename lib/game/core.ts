@@ -27,6 +27,11 @@ import type {
   Weapon,
 } from "./types";
 
+export function inventoryActionLabel(it: InventoryItem): string {
+  const head = it.kind === "weapon" ? "装備" : "使う";
+  return `${head}：${it.count > 1 ? `${it.name}×${it.count}` : it.name}`;
+}
+
 function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n));
 }
@@ -228,12 +233,13 @@ function rollDrops(player: Player, lines: string[]): Player {
 
   if (Math.random() < 0.42) {
     const w = generateWeapon();
-    const old = p.weapon;
-    p.weapon = w;
-    lines.push(`${w.fullName}を手に入れた。`);
-    if (old) {
-      lines.push(`以前の武器は置いていった。`);
-    }
+    p = addLootItem(p, {
+      name: w.fullName,
+      kind: "weapon",
+      power: w.atk,
+      count: 1,
+    });
+    lines.push(`${w.fullName}を拾った。所持品に入れた。`);
   }
 
   if (Math.random() < 0.35) {
@@ -768,10 +774,43 @@ function removeOneItem(inv: InventoryItem[], index: number): InventoryItem[] {
   return inv.filter((_, i) => i !== index);
 }
 
+function equipWeaponFromInventoryPlayer(
+  player: Player,
+  itemIndex: number,
+): { player: Player; line: string } | null {
+  const item = player.inventory[itemIndex];
+  if (!item || item.kind !== "weapon") return null;
+
+  const inv = removeOneItem(player.inventory, itemIndex);
+  const old = player.weapon;
+  let p: Player = {
+    ...player,
+    inventory: inv,
+    weapon: { fullName: item.name, atk: item.power },
+  };
+  const parts: string[] = [`${item.name}を装備した。`];
+  if (old) {
+    p = addLootItem(p, {
+      name: old.fullName,
+      kind: "weapon",
+      power: old.atk,
+      count: 1,
+    });
+    parts.push(`手放した${old.fullName}は所持品に入れた。`);
+  }
+  return { player: p, line: parts.join("") };
+}
+
 export function useItemExplore(state: GameState, itemIndex: number): GameState {
   if (state.phase !== "explore") return state;
   const item = state.player.inventory[itemIndex];
   if (!item) return state;
+
+  if (item.kind === "weapon") {
+    const r = equipWeaponFromInventoryPlayer(state.player, itemIndex);
+    if (!r) return state;
+    return { ...state, player: r.player, log: [...state.log, r.line] };
+  }
 
   const inv = removeOneItem(state.player.inventory, itemIndex);
   let player = { ...state.player, inventory: inv };
@@ -806,6 +845,19 @@ export function combatItem(state: GameState, itemIndex: number): GameState {
   if (!item) return state;
 
   const s = withBossTurnIncrement(state);
+
+  if (item.kind === "weapon") {
+    const r = equipWeaponFromInventoryPlayer(s.player, itemIndex);
+    if (!r) return state;
+    const next: GameState = {
+      ...s,
+      player: r.player,
+      combatMenu: "main",
+      log: [...s.log, r.line],
+    };
+    return enemyTurn(next, []);
+  }
+
   const lines: string[] = [];
   const inv = removeOneItem(s.player.inventory, itemIndex);
   let player = { ...s.player, inventory: inv };

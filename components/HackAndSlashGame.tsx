@@ -32,6 +32,7 @@ import {
   descendStairs,
   explore,
   initialGameState,
+  inventoryActionLabel,
   openCraftMenu,
   openUseItemMenu,
   useItemExplore,
@@ -43,6 +44,7 @@ type ActionEntry = {
   key: string;
   label: string;
   disabled?: boolean;
+  title?: string;
   onActivate: () => void;
 };
 
@@ -89,7 +91,9 @@ function buildActions(
       ];
       const useEntries: ActionEntry[] = p.inventory.map((it) => ({
         key: `explore-use-${it.id}`,
-        label: `使う：${it.count > 1 ? `${it.name}×${it.count}` : it.name}`,
+        label: inventoryActionLabel(it),
+        title:
+          it.kind === "weapon" ? `攻撃補正 +${it.power}` : undefined,
         onActivate: () =>
           setGame((g) => {
             const idx = g.player.inventory.findIndex((x) => x.id === it.id);
@@ -111,7 +115,9 @@ function buildActions(
     if (game.exploreMenu === "use") {
       const useEntries: ActionEntry[] = p.inventory.map((it) => ({
         key: `explore-use-${it.id}`,
-        label: `使う：${it.count > 1 ? `${it.name}×${it.count}` : it.name}`,
+        label: inventoryActionLabel(it),
+        title:
+          it.kind === "weapon" ? `攻撃補正 +${it.power}` : undefined,
         onActivate: () =>
           setGame((g) => {
             const idx = g.player.inventory.findIndex((x) => x.id === it.id);
@@ -222,7 +228,9 @@ function buildActions(
   if (game.combatMenu === "item") {
     const items: ActionEntry[] = p.inventory.map((it) => ({
       key: `item-${it.id}`,
-      label: it.count > 1 ? `${it.name}×${it.count}` : it.name,
+      label: inventoryActionLabel(it),
+      title:
+        it.kind === "weapon" ? `攻撃補正 +${it.power}` : undefined,
       onActivate: () =>
         setGame((g) => {
           const idx = g.player.inventory.findIndex((x) => x.id === it.id);
@@ -507,6 +515,7 @@ export function HackAndSlashGame() {
           type="button"
           className={btnClass(i === selectedIndex)}
           disabled={a.disabled}
+          title={a.title}
           aria-current={i === selectedIndex ? "true" : undefined}
           onClick={() => {
             setSelectedIndex(i);
@@ -559,6 +568,7 @@ export function HackAndSlashGame() {
           type="button"
           className={btnClass(i === selectedIndex)}
           disabled={a.disabled}
+          title={a.title}
           aria-current={i === selectedIndex ? "true" : undefined}
           onClick={() => {
             setSelectedIndex(i);
@@ -746,6 +756,7 @@ export function HackAndSlashGame() {
                 type="button"
                 className={btnClass(i === selectedIndex)}
                 disabled={a.disabled}
+                title={a.title}
                 aria-current={i === selectedIndex ? "true" : undefined}
                 onClick={() => {
                   setSelectedIndex(i);

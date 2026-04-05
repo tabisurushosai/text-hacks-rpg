@@ -1,6 +1,6 @@
 export type SpellId = "ember" | "mend";
 
-export type ItemKind = "restoreHp" | "restoreMp";
+export type ItemKind = "restoreHp" | "restoreMp" | "weapon";
 
 export interface Weapon {
   fullName: string;
