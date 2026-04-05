@@ -1,0 +1,32 @@
+■ 「public」ってどこ？（Finder での場所）
+
+このゲームのプロジェクトを入れているフォルダの「中」にあります。
+
+例：プロジェクトが
+  書類 → text-hacks-rpg
+に入っているなら、Finder では次の順に開きます。
+
+  text-hacks-rpg フォルダ
+    → public フォルダ（ここが「public」。小文字）
+      → bgm フォルダ
+        → ここに theme.mp3 を置く
+
+フルの例（ユーザー名や場所は環境で違います）:
+  /Users/（あなたの名前）/Documents/text-hacks-rpg/public/bgm/theme.mp3
+
+「public」は Windows のエクスプローラでも同じ名前で、ゲームのソースコードと並んだフォルダです。
+リポジトリを zip で取った場合も、解凍した先の text-hacks-rpg の直下に public があります。
+
+■ BGM を流す手順
+
+1. 上の public/bgm に、次のファイル名で音源を置いてください。
+   theme.mp3
+
+2. ゲーム画面右上の「BGM」ボタンで再生・停止します。
+   ブラウザの仕様のため、自動では鳴りません（ボタン操作のあとに再生されます）。
+
+3. ループ前提の短めの曲が向いています。著作権・利用規約にご注意ください。
+
+■ 技術メモ（Next.js）
+public フォルダの中身はサイトのルートからそのまま URL になります。
+例: public/bgm/theme.mp3 → ブラウザでは /bgm/theme.mp3 で取得できます。
