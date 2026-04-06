@@ -51,7 +51,7 @@ export function CombatHud({
           aria-valuemax={enemy.maxHp}
         >
           <div
-            className={`h-full transition-[width] duration-150 ${barClass(eh)}`}
+            className={`h-full transition-[width] duration-150 motion-reduce:transition-none ${barClass(eh)}`}
             style={{ width: `${Math.round(eh * 100)}%` }}
           />
         </div>

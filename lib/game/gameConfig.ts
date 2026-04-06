@@ -41,5 +41,7 @@ export const PERSISTENCE_KEYS = {
   meta: "text-hacks-rpg-meta-v1",
 } as const;
 
-export const SAVE_PAYLOAD_VERSION = 1 as const;
+/** セーブ JSON の版。古い版は読み込み時に正規化する */
+export const SAVE_PAYLOAD_VERSION = 2 as const;
+export const SAVE_LEGACY_VERSION = 1 as const;
 export const META_RECORDS_VERSION = 1 as const;

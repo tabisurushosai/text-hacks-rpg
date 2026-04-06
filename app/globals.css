@@ -62,3 +62,22 @@ body.app-root {
 .title-screen-mist {
   animation: title-mist-drift 14s ease-in-out infinite;
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .title-screen-mist {
+    animation: none;
+  }
+}
+
+/** 画面外に退避しつつ読み上げ対象に残す（Tailwind の sr-only 相当） */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}

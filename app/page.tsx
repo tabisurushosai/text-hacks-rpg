@@ -7,7 +7,7 @@ import { TitleScreen } from "@/components/TitleScreen";
 import {
   clearSaveFromLocalStorage,
   hasSaveInLocalStorage,
-  loadGameFromLocalStorage,
+  loadGameFromLocalStorageDetailed,
 } from "@/lib/game/persistence";
 import type { GameState, JobId } from "@/lib/game/types";
 import { useCallback, useEffect, useState } from "react";
@@ -19,6 +19,7 @@ export default function Home() {
     snapshot: GameState | null;
   }>({ job: "warrior", snapshot: null });
   const [saveAvailable, setSaveAvailable] = useState(false);
+  const [continueError, setContinueError] = useState<string | null>(null);
 
   useEffect(() => {
     if (started) return;
@@ -30,12 +31,19 @@ export default function Home() {
   }, []);
 
   const onContinue = useCallback(() => {
-    const s = loadGameFromLocalStorage();
-    if (!s) {
+    setContinueError(null);
+    const r = loadGameFromLocalStorageDetailed();
+    if (!r.ok) {
+      if (r.reason === "corrupt") {
+        clearSaveFromLocalStorage();
+        setContinueError(
+          "セーブが読めませんでした。壊れているか、対応できない古さです。保存データは削除済みです。「新しく冒険する」で始めてください。",
+        );
+      }
       setSaveAvailable(false);
       return;
     }
-    setBoot({ job: s.job, snapshot: s });
+    setBoot({ job: r.state.job, snapshot: r.state });
     setStarted(true);
   }, []);
 
@@ -58,6 +66,8 @@ export default function Home() {
       ) : (
         <TitleScreen
           saveAvailable={saveAvailable}
+          continueError={continueError}
+          onDismissContinueError={() => setContinueError(null)}
           onContinue={onContinue}
           onNewGame={onNewGame}
         />

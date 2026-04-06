@@ -1,7 +1,6 @@
 import {
   BOSS_ENRAGE_DAMAGE_MUL,
   BOSS_ENRAGE_HP_RATIO,
-  jobPhysicalMul,
   scaleBossFromTemplate,
   scaleEnemyAtk,
   scaleEnemyHp,
@@ -31,6 +30,12 @@ import {
   templatesForFloor,
   WEAPON_SPECIAL_LABEL,
 } from "./data";
+import {
+  computeEnemyDamage,
+  computePhysicalDamage,
+  expToNextLevelRequirement,
+  processLevelUpAccumulation,
+} from "./combatMath";
 import { BALANCE_TUNING } from "./gameConfig";
 import {
   flavorAmbientDetail,
@@ -64,13 +69,9 @@ function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)]!;
 }
 
-function expToNext(level: number): number {
-  return 8 + level * 6;
-}
-
 /** UI 用：次のレベルまでに必要な経験値の残り */
 export function expUntilLevelUp(player: Player): number {
-  return expToNext(player.level) - player.exp;
+  return expToNextLevelRequirement(player.level) - player.exp;
 }
 
 function inventoryItemsMatch(a: InventoryItem, b: InventoryItem): boolean {
@@ -280,10 +281,6 @@ function applyBossHpMilestones(enemy: EnemyInstance, lines: string[]): EnemyInst
   return next;
 }
 
-function weaponPierceFlat(player: Player): number {
-  return player.weapon?.special === "piercing" ? 2 : 0;
-}
-
 function playerCritChance(player: Player): number {
   const bonus = player.weapon?.special === "keen" ? 0.08 : 0;
   return Math.min(0.42, PLAYER_CRIT_CHANCE + bonus);
@@ -294,12 +291,12 @@ function rollPhysicalDamage(
   enemyDef: number,
   job: JobId,
 ): number {
-  const w = player.weapon?.atk ?? 0;
-  const pierce = weaponPierceFlat(player);
-  const effDef = Math.max(0, enemyDef - pierce);
-  const raw = player.baseAtk + w - effDef + Math.floor(Math.random() * 3);
-  const scaled = Math.floor(raw * jobPhysicalMul(job));
-  return clamp(scaled, 1, 999);
+  return computePhysicalDamage(
+    player,
+    enemyDef,
+    job,
+    Math.floor(Math.random() * 3),
+  );
 }
 
 const PLAYER_ATTACK_MISS_CHANCE = 0.05;
@@ -307,25 +304,13 @@ const ENEMY_ATTACK_MISS_CHANCE = 0.15;
 const PLAYER_CRIT_CHANCE = 0.1;
 
 function rollEnemyDamage(enemyAtk: number): number {
-  const raw = enemyAtk + Math.floor(Math.random() * 2);
-  return clamp(raw, 1, 999);
+  return computeEnemyDamage(enemyAtk, Math.floor(Math.random() * 2));
 }
 
 function maybeLevelUp(player: Player, lines: string[]): Player {
-  const p = { ...player };
-  let need = expToNext(p.level);
-  while (p.exp >= need) {
-    p.exp -= need;
-    p.level += 1;
-    p.maxHp += 5;
-    p.maxMp += 3;
-    p.baseAtk += 1;
-    p.hp = p.maxHp;
-    p.mp = p.maxMp;
-    lines.push(`レベルが上がった。Lv${p.level}。`);
-    need = expToNext(p.level);
-  }
-  return p;
+  const { player: next, messages } = processLevelUpAccumulation(player);
+  lines.push(...messages);
+  return next;
 }
 
 function generateWeapon(): Weapon {

@@ -1,6 +1,7 @@
 import {
   META_RECORDS_VERSION,
   PERSISTENCE_KEYS,
+  SAVE_LEGACY_VERSION,
   SAVE_PAYLOAD_VERSION,
 } from "./gameConfig";
 import {
@@ -13,10 +14,14 @@ import {
 import type { GameState, JobId } from "./types";
 
 type SaveEnvelope = {
-  v: typeof SAVE_PAYLOAD_VERSION;
+  v: typeof SAVE_PAYLOAD_VERSION | typeof SAVE_LEGACY_VERSION;
   job: JobId;
   state: GameState;
 };
+
+export type LoadSaveResult =
+  | { ok: true; state: GameState }
+  | { ok: false; reason: "missing" | "corrupt" };
 
 function stripVolatileForSave(state: GameState): GameState {
   return {
@@ -34,23 +39,55 @@ export function serializeGameState(state: GameState): string {
   return JSON.stringify(env);
 }
 
+const JOBS: JobId[] = ["warrior", "mage", "farmer"];
+
+function normalizeLoadedState(s: GameState): GameState {
+  return {
+    ...s,
+    pendingClientEvent: null,
+    bossCombatTurns: s.bossCombatTurns ?? 0,
+    totalBattlesFought: s.totalBattlesFought ?? 0,
+    exploreMenu: s.exploreMenu ?? "main",
+    combatMenu: s.combatMenu ?? "main",
+    stairsVisible: Boolean(s.stairsVisible),
+    bossDefeated: Boolean(s.bossDefeated),
+  };
+}
+
 export function parseGameState(json: string): GameState | null {
+  const r = tryLoadGameFromJson(json);
+  return r.ok ? r.state : null;
+}
+
+export function tryLoadGameFromJson(json: string): LoadSaveResult {
   try {
     const raw = JSON.parse(json) as Partial<SaveEnvelope>;
-    if (raw.v !== SAVE_PAYLOAD_VERSION || !raw.state || !raw.job) return null;
+    const v = raw.v;
+    if (v !== SAVE_PAYLOAD_VERSION && v !== SAVE_LEGACY_VERSION) {
+      return { ok: false, reason: "corrupt" };
+    }
+    if (!raw.state || !raw.job || !JOBS.includes(raw.job)) {
+      return { ok: false, reason: "corrupt" };
+    }
     const s = raw.state;
     if (s.phase !== "explore" && s.phase !== "combat" && s.phase !== "cleared") {
-      return null;
+      return { ok: false, reason: "corrupt" };
     }
     if (typeof s.floor !== "number" || !s.player || !Array.isArray(s.log)) {
-      return null;
+      return { ok: false, reason: "corrupt" };
+    }
+    if (typeof s.player.hp !== "number" || typeof s.player.level !== "number") {
+      return { ok: false, reason: "corrupt" };
     }
     return {
-      ...s,
-      pendingClientEvent: null,
-    } as GameState;
+      ok: true,
+      state: normalizeLoadedState({
+        ...s,
+        job: raw.job,
+      } as GameState),
+    };
   } catch {
-    return null;
+    return { ok: false, reason: "corrupt" };
   }
 }
 
@@ -67,13 +104,18 @@ export function saveGameToLocalStorage(state: GameState): void {
 }
 
 export function loadGameFromLocalStorage(): GameState | null {
-  if (typeof window === "undefined") return null;
+  const r = loadGameFromLocalStorageDetailed();
+  return r.ok ? r.state : null;
+}
+
+export function loadGameFromLocalStorageDetailed(): LoadSaveResult {
+  if (typeof window === "undefined") return { ok: false, reason: "missing" };
   try {
     const raw = window.localStorage.getItem(PERSISTENCE_KEYS.save);
-    if (!raw) return null;
-    return parseGameState(raw);
+    if (!raw) return { ok: false, reason: "missing" };
+    return tryLoadGameFromJson(raw);
   } catch {
-    return null;
+    return { ok: false, reason: "corrupt" };
   }
 }
 
@@ -144,4 +186,8 @@ export function persistMetaRunStarted(): MetaRecords {
   const next = mergeMetaRunStarted(loadMetaRecords());
   saveMetaRecords(next);
   return next;
+}
+
+export function clearMetaFromLocalStorage(): void {
+  saveMetaRecords(emptyMetaRecords());
 }

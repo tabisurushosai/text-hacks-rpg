@@ -6,7 +6,7 @@ import { useGameBgm } from "@/components/GameBgmContext";
 import { JOB_META, JOB_ORDER, RUN_TARGET_MINUTES } from "@/lib/game/balance";
 import { expUntilLevelUp, initialGameState } from "@/lib/game/core";
 import { formatWeaponEquipLine, SPELLS } from "@/lib/game/data";
-import { logLineTone, logToneClass } from "@/lib/game/logLineTone";
+import { logLinePrefix, logLineTone, logToneClass } from "@/lib/game/logLineTone";
 import {
   persistMetaAfterBossClear,
   persistMetaAfterDeath,
@@ -40,6 +40,8 @@ export function HackAndSlashGame({
   );
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [reduceMotion, setReduceMotion] = useState(false);
+  const [liveLogAnnouncement, setLiveLogAnnouncement] = useState("");
   const { bgmPlaying, bgmMissing, toggleBgm, resetGameBgm, syncPhase } =
     useGameBgm();
   const selectedIndexRef = useRef(0);
@@ -47,6 +49,9 @@ export function HackAndSlashGame({
   helpOpenRef.current = helpOpen;
   const logEndRef = useRef<HTMLDivElement>(null);
   const logWrapRef = useRef<HTMLDivElement>(null);
+  const helpBtnRef = useRef<HTMLButtonElement>(null);
+  const helpHeadingRef = useRef<HTMLHeadingElement>(null);
+  const prevLogLenRef = useRef(-1);
   const gameRef = useRef(game);
   gameRef.current = game;
   selectedIndexRef.current = selectedIndex;
@@ -90,6 +95,38 @@ export function HackAndSlashGame({
     syncPhase(game.phase === "cleared" ? "explore" : game.phase);
   }, [game.phase, syncPhase]);
 
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const apply = () => setReduceMotion(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+
+  useEffect(() => {
+    if (prevLogLenRef.current < 0) {
+      prevLogLenRef.current = game.log.length;
+      return;
+    }
+    if (game.log.length > prevLogLenRef.current) {
+      const line = game.log[game.log.length - 1] ?? "";
+      const tone = logLineTone(line);
+      setLiveLogAnnouncement(`${logLinePrefix(tone)}${line}`);
+    }
+    prevLogLenRef.current = game.log.length;
+  }, [game.log]);
+
+  useEffect(() => {
+    if (!helpOpen) return;
+    const back = helpBtnRef.current;
+    queueMicrotask(() => {
+      helpHeadingRef.current?.focus({ preventScroll: true });
+    });
+    return () => {
+      back?.focus({ preventScroll: true });
+    };
+  }, [helpOpen]);
+
   const actions = useMemo(() => buildGameActions(game, setGame), [game, setGame]);
 
   const menuResetKey = [
@@ -114,8 +151,11 @@ export function HackAndSlashGame({
   }, [actions.length]);
 
   const scrollLogToBottom = useCallback(() => {
-    logEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, []);
+    logEndRef.current?.scrollIntoView({
+      behavior: reduceMotion ? "auto" : "smooth",
+      block: "end",
+    });
+  }, [reduceMotion]);
 
   useEffect(() => {
     scrollLogToBottom();
@@ -578,8 +618,10 @@ export function HackAndSlashGame({
             onClick={(e) => e.stopPropagation()}
           >
             <h2
+              ref={helpHeadingRef}
               id="help-title"
-              className="mb-3 text-base font-semibold text-[var(--text)]"
+              tabIndex={-1}
+              className="mb-3 text-base font-semibold text-[var(--text)] outline-none ring-[var(--accent)] focus-visible:ring-2"
             >
               メモ（用語・操作）
             </h2>
@@ -650,7 +692,8 @@ export function HackAndSlashGame({
                     進行は端末の localStorage に自動保存されます。「続きから」で再開、「新しく冒険する」でセーブは消えます。右上「タイトルへ」で保存のまま戻れます。
                   </li>
                   <li>
-                    ログは種類で色が少し変わります（ダメージ・回復・拾得・【】系の強調など）。戦闘中はログの上に敵と自分の HP/MP バーが出ます。
+                    ログは行頭の［傷］［癒］などの印と、種類に応じた色で分かりやすくしています。読み上げでは新しい行が通知されます。戦闘中はログの上に敵と自分の HP/MP バーが出ます。OS
+                    の「動きを減らす」を有効にすると、ログの自動スクロールやタイトルの背景動きを控えめにします。
                   </li>
                 </ul>
               </section>
@@ -742,6 +785,7 @@ export function HackAndSlashGame({
           </div>
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
             <button
+              ref={helpBtnRef}
               type="button"
               onClick={() => setHelpOpen(true)}
               className="touch-manipulation min-h-[36px] min-w-[36px] select-none rounded border border-[var(--border)] bg-[var(--panel)] px-2 py-1 text-sm font-semibold text-[var(--text)] transition hover:border-[var(--accent)] hover:bg-[#24303d]"
@@ -792,6 +836,10 @@ export function HackAndSlashGame({
         <CombatHud enemy={game.enemy} player={p} />
       ) : null}
 
+      <div className="sr-only" aria-live="polite" aria-atomic="true">
+        {liveLogAnnouncement}
+      </div>
+
       <section
         ref={logWrapRef}
         className="touch-scroll-y min-h-0 max-sm:min-h-[min(46dvh,22rem)] flex-1 overflow-y-auto rounded border border-[var(--border)] bg-[var(--panel)] px-3 py-2"
@@ -800,8 +848,12 @@ export function HackAndSlashGame({
         <ul className="space-y-1.5 text-sm leading-relaxed">
           {game.log.map((line, i) => {
             const tone = logLineTone(line);
+            const prefix = logLinePrefix(tone);
             return (
               <li key={i} className={logToneClass(tone)}>
+                {prefix ? (
+                  <span className="text-[var(--muted)]">{prefix}</span>
+                ) : null}
                 {line}
               </li>
             );

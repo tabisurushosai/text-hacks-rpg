@@ -5,7 +5,10 @@ import { useCallback, useEffect, useState } from "react";
 import { useGameBgm } from "@/components/GameBgmContext";
 import { JOB_META, JOB_ORDER } from "@/lib/game/balance";
 import { formatMetaSummary } from "@/lib/game/metaRecords";
-import { loadMetaRecords } from "@/lib/game/persistence";
+import {
+  clearMetaFromLocalStorage,
+  loadMetaRecords,
+} from "@/lib/game/persistence";
 import type { JobId } from "@/lib/game/types";
 
 const titleSerif = Noto_Serif_JP({
@@ -18,12 +21,16 @@ type TitleScreenProps = {
   onNewGame: (job: JobId) => void;
   onContinue: () => void;
   saveAvailable: boolean;
+  continueError: string | null;
+  onDismissContinueError: () => void;
 };
 
 export function TitleScreen({
   onNewGame,
   onContinue,
   saveAvailable,
+  continueError,
+  onDismissContinueError,
 }: TitleScreenProps) {
   const [step, setStep] = useState<"title" | "chooseJob">("title");
   const {
@@ -34,7 +41,21 @@ export function TitleScreen({
     titleBgmDead,
   } = useGameBgm();
 
-  const [metaSummary] = useState(() => formatMetaSummary(loadMetaRecords()));
+  const [metaSummary, setMetaSummary] = useState(() =>
+    formatMetaSummary(loadMetaRecords()),
+  );
+
+  const resetMeta = useCallback(() => {
+    if (
+      !window.confirm(
+        "記録（最深階・踏破回数・冒険開始回数）を消します。セーブとは別です。よろしいですか？",
+      )
+    ) {
+      return;
+    }
+    clearMetaFromLocalStorage();
+    setMetaSummary(formatMetaSummary(loadMetaRecords()));
+  }, []);
 
   const confirmJob = useCallback(
     async (job: JobId) => {
@@ -129,9 +150,34 @@ export function TitleScreen({
           層底譚
         </h1>
 
-        <p className="mb-4 max-w-lg font-sans text-xs leading-relaxed text-[var(--muted)]">
+        {continueError ? (
+          <div
+            role="alert"
+            className="mb-4 w-full max-w-lg rounded border border-[#8b4040] bg-[#2a1515]/95 px-3 py-2 text-left font-sans text-xs leading-relaxed text-[var(--text)]"
+          >
+            <p>{continueError}</p>
+            <button
+              type="button"
+              className="mt-2 touch-manipulation text-[var(--accent)] underline"
+              onClick={onDismissContinueError}
+            >
+              メッセージを閉じる
+            </button>
+          </div>
+        ) : null}
+
+        <p className="mb-1 max-w-lg font-sans text-xs leading-relaxed text-[var(--muted)]">
           {metaSummary}
         </p>
+        {step === "title" ? (
+          <button
+            type="button"
+            onClick={resetMeta}
+            className="mb-4 touch-manipulation font-sans text-[11px] text-[var(--muted)] underline decoration-[var(--border)] underline-offset-2 hover:text-[var(--text)]"
+          >
+            記録だけリセット（セーブは残る）
+          </button>
+        ) : null}
 
         {step === "title" ? (
           <div className="flex w-full max-w-lg flex-col gap-3" role="group" aria-label="タイトル操作">

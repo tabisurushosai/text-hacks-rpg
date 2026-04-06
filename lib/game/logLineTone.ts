@@ -28,6 +28,24 @@ export function logLineTone(line: string): LogLineTone {
   return "default";
 }
 
+/** 色に頼らない短い印（全角括弧で視認しやすく） */
+export function logLinePrefix(tone: LogLineTone): string {
+  switch (tone) {
+    case "damage":
+      return "［傷］ ";
+    case "heal":
+      return "［癒］ ";
+    case "loot":
+      return "［得］ ";
+    case "emphasis":
+      return "［要］ ";
+    case "muted":
+      return "［末］ ";
+    default:
+      return "";
+  }
+}
+
 export function logToneClass(tone: LogLineTone): string {
   switch (tone) {
     case "damage":
