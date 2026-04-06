@@ -122,9 +122,10 @@ export function HackAndSlashGame({ job }: { job: JobId }) {
   const p = game.player;
   const inCombat = game.phase === "combat" && game.enemy;
 
-  const compactExploreOrCombatMain =
-    (game.phase === "explore" && game.exploreMenu === "main") ||
-    (game.phase === "combat" && game.combatMenu === "main");
+  const compactExploreMain =
+    game.phase === "explore" && game.exploreMenu === "main";
+  const compactCombatMain =
+    game.phase === "combat" && game.combatMenu === "main";
 
   const btnCore =
     "touch-manipulation select-none rounded border px-2 py-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-40 sm:px-3";
@@ -302,10 +303,15 @@ export function HackAndSlashGame({ job }: { job: JobId }) {
       );
     }
 
-    if (game.combatMenu === "magic") {
+    if (game.combatMenu === "skills" || game.combatMenu === "magic") {
+      const subLabel = game.combatMenu === "skills" ? "スキル" : "魔法";
       return (
         <div className="grid grid-cols-2 gap-2">
-          <div className="col-span-2 grid grid-cols-2 gap-2" role="group" aria-label="魔法">
+          <div
+            className="col-span-2 grid grid-cols-2 gap-2"
+            role="group"
+            aria-label={subLabel}
+          >
             {actions.slice(0, -1).map((a, i) => (
               <button
                 key={a.key}
@@ -533,7 +539,7 @@ export function HackAndSlashGame({ job }: { job: JobId }) {
                 </h3>
                 <p className="text-sm">
                   炎・氷・雷は攻撃、回復は HP
-                  回復です。各職には冒険開始時から2つの職スキルがあり、綴りでは覚えません。綴りは1〜5階で基本形（火矢・氷片・細雷・癒し）のみ、6階以降から上位（業火・凍嵐・落雷・大癒）が混ざります。探索で唱えられるのは癒し・大癒に加え、応急措置・精神統一・仮眠など職によって異なります。戦闘の「魔法」メニューは【攻撃】と【回復・支援】に分けて並びます。
+                  回復です。各職には冒険開始時から2つの職スキルがあり、綴りでは覚えません。綴りは1〜5階で基本形（火矢・氷片・細雷・癒し）のみ、6階以降から上位（業火・凍嵐・落雷・大癒）が混ざります。探索で唱えられるのは癒し・大癒に加え、応急措置・精神統一・仮眠など職によって異なります。戦闘では「スキル」（職スキル）と「魔法」（炎氷雷・癒し）を分け、魔法内は【攻撃魔法】と【回復魔法】の順です。
                 </p>
               </section>
               <section>
@@ -664,9 +670,11 @@ export function HackAndSlashGame({ job }: { job: JobId }) {
         </p>
         <div
           className={
-            compactExploreOrCombatMain
+            compactExploreMain
               ? "h-[104px] shrink-0 overflow-hidden"
-              : "touch-scroll-y max-h-[min(50dvh,20rem)] min-h-[104px] shrink-0 overflow-y-auto overscroll-y-contain"
+              : compactCombatMain
+                ? "h-[156px] shrink-0 overflow-hidden"
+                : "touch-scroll-y max-h-[min(50dvh,20rem)] min-h-[104px] shrink-0 overflow-y-auto overscroll-y-contain"
           }
         >
           {renderButtons()}

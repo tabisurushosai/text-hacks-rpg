@@ -22,6 +22,7 @@ import {
   JOB_STARTING_SPELLS,
   spellBooksLootPool,
   SPELLS,
+  WEAPON_ATK_MAX,
   WEAPON_BASES,
   WEAPON_PREFIXES,
   nextItemId,
@@ -324,11 +325,11 @@ function maybeLevelUp(player: Player, lines: string[]): Player {
 }
 
 function generateWeapon(): Weapon {
-  for (let n = 0; n < 64; n++) {
+  for (let n = 0; n < 96; n++) {
     const base = pick(WEAPON_BASES);
     const pre = pick(WEAPON_PREFIXES);
     const atk = base.atk + pre.atk;
-    if (atk >= 1) {
+    if (atk >= 1 && atk <= WEAPON_ATK_MAX) {
       const special = rollWeaponSpecial();
       let fullName = `${pre.label}${base.name}`;
       if (special !== "none") {
@@ -374,7 +375,8 @@ function addLootItem(
 function rollDrops(player: Player, lines: string[], floor: number): Player {
   let p = { ...player, inventory: [...player.inventory] };
 
-  const weaponChance = Math.min(0.52, 0.36 + floor * 0.014);
+  /** 1 階で約 1%、階が上がるほど少しずつ上がる（上限 ~16%） */
+  const weaponChance = Math.min(0.16, 0.01 + Math.max(0, floor - 1) * 0.0167);
   if (Math.random() < weaponChance) {
     const w = generateWeapon();
     p = addLootItem(p, {

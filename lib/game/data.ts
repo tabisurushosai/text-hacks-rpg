@@ -122,29 +122,55 @@ export const WEAPON_SPECIAL_HINT: Record<WeaponSpecial, string> = {
   twin: "（約22%で追加攻撃）",
 };
 
+export const WEAPON_ATK_MAX = 15;
+
 export const WEAPON_BASES: { name: string; atk: number; category: WeaponCategory }[] =
   [
     { name: "短剣", atk: 2, category: "sword" },
     { name: "長剣", atk: 3, category: "sword" },
+    { name: "鋼刃", atk: 4, category: "sword" },
+    { name: "大曲刀", atk: 5, category: "sword" },
+    { name: "瘴纏い剣", atk: 6, category: "sword" },
+    { name: "層断ち", atk: 7, category: "sword" },
     { name: "手斧", atk: 3, category: "axe" },
     { name: "双刃斧", atk: 4, category: "axe" },
+    { name: "深谷斧", atk: 5, category: "axe" },
+    { name: "断鉄斧", atk: 6, category: "axe" },
     { name: "長槍", atk: 3, category: "spear" },
     { name: "三叉槍", atk: 2, category: "spear" },
+    { name: "猟犬槍", atk: 4, category: "spear" },
+    { name: "螺旋槍", atk: 5, category: "spear" },
+    { name: "深層鉾", atk: 6, category: "spear" },
     { name: "棍棒", atk: 2, category: "mace" },
     { name: "戦槌", atk: 3, category: "mace" },
+    { name: "鉄塊槌", atk: 5, category: "mace" },
+    { name: "削岩槌", atk: 6, category: "mace" },
+    { name: "盟約の鎚", atk: 7, category: "mace" },
     { name: "匕首", atk: 1, category: "dagger" },
     { name: "投げ刃", atk: 1, category: "dagger" },
+    { name: "儀礼刃", atk: 4, category: "dagger" },
+    { name: "影抜き", atk: 5, category: "dagger" },
     { name: "魔導片刃", atk: 2, category: "wand" },
+    { name: "術式刃", atk: 4, category: "wand" },
+    { name: "星楔の杖刃", atk: 6, category: "wand" },
+    { name: "底知れぬ片刃", atk: 8, category: "wand" },
   ];
 
 export const WEAPON_PREFIXES: { label: string; atk: number }[] = [
   { label: "錆びた", atk: -2 },
+  { label: "欠けた", atk: -2 },
   { label: "古い", atk: -1 },
-  { label: "普通の", atk: 0 },
-  { label: "鋭い", atk: 2 },
-  { label: "洗練された", atk: 4 },
   { label: "呪われた", atk: -1 },
+  { label: "普通の", atk: 0 },
+  { label: "褪せた", atk: 0 },
+  { label: "鋭い", atk: 2 },
+  { label: "嗡鳴る", atk: 3 },
   { label: "祝福された", atk: 3 },
+  { label: "盟約の", atk: 4 },
+  { label: "洗練された", atk: 4 },
+  { label: "層底の", atk: 5 },
+  { label: "星屑の", atk: 6 },
+  { label: "喰らいし", atk: 7 },
 ];
 
 /** 生成時に付与（none 以外は名前に付記） */
@@ -262,42 +288,54 @@ export const SPELL_ELEMENT: Partial<Record<SpellId, SpellElement>> = {
   volt_chain: "thunder",
 };
 
-/** 戦闘「魔法」メニュー：攻撃系の並び */
-const COMBAT_ATTACK_SPELLS: SpellId[] = [
+/** 職スキル（戦闘メニュー「スキル」にのみ出す） */
+export const JOB_SKILL_SPELLS: SpellId[] = [
+  "war_cleave",
+  "war_resolve",
+  "mage_ether",
+  "mage_tap",
+  "far_mud",
+  "far_rest",
+];
+
+export function isJobSkillSpell(id: SpellId): boolean {
+  return JOB_SKILL_SPELLS.includes(id);
+}
+
+/** 戦闘「魔法」メニュー：属性攻撃の並び */
+const COMBAT_MAGIC_ATTACK_SPELLS: SpellId[] = [
   "fire_jolt",
   "fire_blast",
   "ice_shard",
   "ice_wrath",
   "volt_needle",
   "volt_chain",
-  "war_cleave",
-  "mage_ether",
-  "far_mud",
 ];
 
-/** 戦闘「魔法」メニュー：回復・支援の並び */
-const COMBAT_SUPPORT_SPELLS: SpellId[] = [
-  "heal_soft",
-  "heal_solid",
-  "war_resolve",
-  "mage_tap",
-  "far_rest",
-];
+/** 戦闘「魔法」メニュー：癒し系（綴りで覚える回復） */
+const COMBAT_MAGIC_HEAL_SPELLS: SpellId[] = ["heal_soft", "heal_solid"];
 
-export function sortKnownSpellsForCombatMenu(known: SpellId[]): SpellId[] {
+export function sortJobSkillsForMenu(known: SpellId[]): SpellId[] {
   const set = new Set(known);
-  const ordered: SpellId[] = [];
-  for (const id of COMBAT_ATTACK_SPELLS) {
-    if (set.has(id)) ordered.push(id);
-  }
-  for (const id of COMBAT_SUPPORT_SPELLS) {
-    if (set.has(id)) ordered.push(id);
-  }
-  return ordered;
+  return JOB_SKILL_SPELLS.filter((id) => set.has(id));
 }
 
-export function combatSpellMenuPrefix(spell: SpellId): string {
-  return COMBAT_ATTACK_SPELLS.includes(spell) ? "【攻撃】" : "【回復・支援】";
+export function sortMagicSpellsForCombatMenu(known: SpellId[]): SpellId[] {
+  const set = new Set(known);
+  const attack: SpellId[] = [];
+  for (const id of COMBAT_MAGIC_ATTACK_SPELLS) {
+    if (set.has(id)) attack.push(id);
+  }
+  const heal: SpellId[] = [];
+  for (const id of COMBAT_MAGIC_HEAL_SPELLS) {
+    if (set.has(id)) heal.push(id);
+  }
+  return [...attack, ...heal];
+}
+
+export function combatMagicMenuPrefix(spell: SpellId): string {
+  if (COMBAT_MAGIC_ATTACK_SPELLS.includes(spell)) return "【攻撃魔法】";
+  return "【回復魔法】";
 }
 
 /** 1〜5階の綴りドロップ。炎・氷・雷・癒しの基本形 */
