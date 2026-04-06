@@ -11,7 +11,7 @@ import {
   mergeMetaAfterDeath,
   mergeMetaRunStarted,
 } from "./metaRecords";
-import type { GameState, JobId } from "./types";
+import type { CombatMenu, GameState, JobId } from "./types";
 
 type SaveEnvelope = {
   v: typeof SAVE_PAYLOAD_VERSION | typeof SAVE_LEGACY_VERSION;
@@ -41,6 +41,11 @@ export function serializeGameState(state: GameState): string {
 
 const JOBS: JobId[] = ["warrior", "mage", "farmer"];
 
+function normalizeCombatMenu(raw: unknown): CombatMenu {
+  if (raw === "main" || raw === "abilities" || raw === "item") return raw;
+  return "main";
+}
+
 function normalizeLoadedState(s: GameState): GameState {
   return {
     ...s,
@@ -48,7 +53,7 @@ function normalizeLoadedState(s: GameState): GameState {
     bossCombatTurns: s.bossCombatTurns ?? 0,
     totalBattlesFought: s.totalBattlesFought ?? 0,
     exploreMenu: s.exploreMenu ?? "main",
-    combatMenu: s.combatMenu ?? "main",
+    combatMenu: normalizeCombatMenu(s.combatMenu),
     stairsVisible: Boolean(s.stairsVisible),
     bossDefeated: Boolean(s.bossDefeated),
   };

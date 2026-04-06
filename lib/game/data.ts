@@ -289,7 +289,7 @@ export const SPELL_ELEMENT: Partial<Record<SpellId, SpellElement>> = {
   volt_chain: "thunder",
 };
 
-/** 職スキル（戦闘メニュー「スキル」にのみ出す） */
+/** 職スキル（戦闘「スキル・魔法」メニューの先頭に出す） */
 export const JOB_SKILL_SPELLS: SpellId[] = [
   "war_cleave",
   "war_resolve",
@@ -332,6 +332,14 @@ export function sortMagicSpellsForCombatMenu(known: SpellId[]): SpellId[] {
     if (set.has(id)) heal.push(id);
   }
   return [...attack, ...heal];
+}
+
+/** 戦闘「スキル・魔法」一覧：職スキル→攻撃魔法→回復魔法 */
+export function sortCombatAbilitiesForMenu(known: SpellId[]): SpellId[] {
+  return [
+    ...sortJobSkillsForMenu(known),
+    ...sortMagicSpellsForCombatMenu(known),
+  ];
 }
 
 export function combatMagicMenuPrefix(spell: SpellId): string {

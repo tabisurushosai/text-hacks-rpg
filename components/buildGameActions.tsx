@@ -10,8 +10,7 @@ import {
   ITEM_MANA_HERB,
   ITEM_MANA_POTION_MINOR,
   ITEM_POTION_MINOR,
-  sortJobSkillsForMenu,
-  sortMagicSpellsForCombatMenu,
+  sortCombatAbilitiesForMenu,
   SPELLS,
 } from "@/lib/game/data";
 import {
@@ -209,8 +208,8 @@ export function buildGameActions(
   if (!inCombat) return [];
 
   if (game.combatMenu === "main") {
-    const hasJobSkills = p.knownSpells.some((s) => isJobSkillSpell(s));
-    const hasMagicSpells = p.knownSpells.some((s) => !isJobSkillSpell(s));
+    const abilityIds = sortCombatAbilitiesForMenu(p.knownSpells);
+    const hasAbilities = abilityIds.length > 0;
     return [
       {
         key: "fight",
@@ -218,48 +217,25 @@ export function buildGameActions(
         onActivate: () => setGame((g) => combatFight(g)),
       },
       {
-        key: "skills-open",
-        label: "スキル",
-        disabled: !hasJobSkills,
-        title: hasJobSkills
-          ? "職業スキル（強撃・応急措置など）"
-          : "職スキルがない",
+        key: "abilities-open",
+        label: "スキル・魔法",
+        disabled: !hasAbilities,
+        title: hasAbilities
+          ? "職スキルと、綴りで覚えた炎・氷・雷・癒し"
+          : "使えるスキルや魔法がない",
         onActivate: () =>
           setGame((g) => {
-            if (!g.player.knownSpells.some((s) => isJobSkillSpell(s))) {
-              return { ...g, log: [...g.log, "使える職スキルがない。"] };
+            if (sortCombatAbilitiesForMenu(g.player.knownSpells).length === 0) {
+              return {
+                ...g,
+                log: [...g.log, "使えるスキルや魔法がない。"],
+              };
             }
-            return { ...g, combatMenu: "skills" };
+            return { ...g, combatMenu: "abilities" };
           }),
       },
       {
-        key: "magic-open",
-        label: "魔法",
-        disabled: !hasMagicSpells,
-        title: hasMagicSpells
-          ? "炎・氷・雷・癒し（綴りで覚えた魔法）"
-          : "まだ魔法を知らない",
-        onActivate: () =>
-          setGame((g) => {
-            if (!g.player.knownSpells.some((s) => !isJobSkillSpell(s))) {
-              return { ...g, log: [...g.log, "まだ魔法を知らない。"] };
-            }
-            return { ...g, combatMenu: "magic" };
-          }),
-      },
-      {
-        key: "misc-open",
-        label: "その他",
-        title: "道具の使用・逃走",
-        onActivate: () => setGame((g) => ({ ...g, combatMenu: "misc" })),
-      },
-    ];
-  }
-
-  if (game.combatMenu === "misc") {
-    return [
-      {
-        key: "misc-item",
+        key: "item-open",
         label: "道具",
         disabled: p.inventory.length === 0,
         title:
@@ -275,27 +251,25 @@ export function buildGameActions(
           }),
       },
       {
-        key: "misc-run",
+        key: "run",
         label: "逃げる",
-        title: "戦闘から離脱を試みる",
+        title: "戦闘から離脱を試みる（ボスでは足がすくむ）",
         onActivate: () => setGame((g) => combatRun(g)),
       },
-      {
-        key: "back-misc",
-        label: "戻る",
-        onActivate: () => setGame((g) => ({ ...g, combatMenu: "main" })),
-      },
     ];
   }
 
-  if (game.combatMenu === "skills") {
-    const ordered = sortJobSkillsForMenu(p.knownSpells);
+  if (game.combatMenu === "abilities") {
+    const ordered = sortCombatAbilitiesForMenu(p.knownSpells);
     const spells: ActionEntry[] = ordered.map((sid) => {
       const cost = SPELLS[sid].mpCost;
       const disabled = p.mp < cost;
+      const label = isJobSkillSpell(sid)
+        ? `【職】${SPELLS[sid].label}（MP ${cost}）`
+        : `${combatMagicMenuPrefix(sid)}${SPELLS[sid].label}（MP ${cost}）`;
       return {
         key: `spell-${sid}`,
-        label: `【職】${SPELLS[sid].label}（MP ${cost}）`,
+        label,
         disabled,
         title: SPELLS[sid].description,
         onActivate: () => {
@@ -307,34 +281,7 @@ export function buildGameActions(
     return [
       ...spells,
       {
-        key: "back-skills",
-        label: "戻る",
-        onActivate: () => setGame((g) => ({ ...g, combatMenu: "main" })),
-      },
-    ];
-  }
-
-  if (game.combatMenu === "magic") {
-    const ordered = sortMagicSpellsForCombatMenu(p.knownSpells);
-    const spells: ActionEntry[] = ordered.map((sid) => {
-      const cost = SPELLS[sid].mpCost;
-      const disabled = p.mp < cost;
-      const prefix = combatMagicMenuPrefix(sid);
-      return {
-        key: `spell-${sid}`,
-        label: `${prefix}${SPELLS[sid].label}（MP ${cost}）`,
-        disabled,
-        title: SPELLS[sid].description,
-        onActivate: () => {
-          if (disabled) return;
-          setGame((g) => combatMagic(g, sid as SpellId));
-        },
-      };
-    });
-    return [
-      ...spells,
-      {
-        key: "back-magic",
+        key: "back-abilities",
         label: "戻る",
         onActivate: () => setGame((g) => ({ ...g, combatMenu: "main" })),
       },
@@ -357,7 +304,7 @@ export function buildGameActions(
       {
         key: "back-item",
         label: "戻る",
-        onActivate: () => setGame((g) => ({ ...g, combatMenu: "misc" })),
+        onActivate: () => setGame((g) => ({ ...g, combatMenu: "main" })),
       },
     ];
   }

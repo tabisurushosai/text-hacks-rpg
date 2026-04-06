@@ -219,8 +219,6 @@ export function HackAndSlashGame({
     game.phase === "explore" && game.exploreMenu === "main";
   const compactCombatMain =
     game.phase === "combat" && game.combatMenu === "main";
-  const compactCombatMisc =
-    game.phase === "combat" && game.combatMenu === "misc";
 
   const btnCore =
     "touch-manipulation select-none rounded border px-2 py-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-40 sm:px-3";
@@ -378,12 +376,12 @@ export function HackAndSlashGame({
 
     if (game.combatMenu === "main") {
       const fightA = actions.find((a) => a.key === "fight");
-      const skillsA = actions.find((a) => a.key === "skills-open");
-      const magicA = actions.find((a) => a.key === "magic-open");
-      const miscA = actions.find((a) => a.key === "misc-open");
-      if (!fightA || !skillsA || !magicA || !miscA) return null;
+      const abilA = actions.find((a) => a.key === "abilities-open");
+      const itemA = actions.find((a) => a.key === "item-open");
+      const runA = actions.find((a) => a.key === "run");
+      if (!fightA || !abilA || !itemA || !runA) return null;
 
-      const row: ActionEntry[] = [fightA, skillsA, magicA, miscA];
+      const row: ActionEntry[] = [fightA, abilA, itemA, runA];
 
       return (
         <div
@@ -414,48 +412,8 @@ export function HackAndSlashGame({
       );
     }
 
-    if (game.combatMenu === "misc") {
-      const itemA = actions.find((a) => a.key === "misc-item");
-      const runA = actions.find((a) => a.key === "misc-run");
-      const backA = actions.find((a) => a.key === "back-misc");
-      if (!itemA || !runA || !backA) return null;
-
-      const indexOf = (key: string) => actions.findIndex((a) => a.key === key);
-
-      const renderBtn = (a: ActionEntry, i: number) => (
-        <button
-          key={a.key}
-          type="button"
-          className={btnClassGrid(i === selectedIndex)}
-          disabled={a.disabled}
-          title={a.title}
-          aria-current={i === selectedIndex ? "true" : undefined}
-          onClick={() => {
-            setSelectedIndex(i);
-            if (!a.disabled) a.onActivate();
-          }}
-        >
-          {a.label}
-        </button>
-      );
-
-      return (
-        <div
-          className="grid grid-cols-2 gap-2"
-          role="group"
-          aria-label="その他（道具・逃走）"
-        >
-          {renderBtn(itemA, indexOf(itemA.key))}
-          {renderBtn(runA, indexOf(runA.key))}
-          <div className="col-span-2">
-            {renderBtn(backA, indexOf(backA.key))}
-          </div>
-        </div>
-      );
-    }
-
-    if (game.combatMenu === "skills" || game.combatMenu === "magic") {
-      const subLabel = game.combatMenu === "skills" ? "スキル" : "魔法";
+    if (game.combatMenu === "abilities") {
+      const subLabel = "スキル・魔法";
       return (
         <div className="grid grid-cols-2 gap-2">
           <div
@@ -685,8 +643,8 @@ export function HackAndSlashGame({
                     つ（探索／調合アイテム／魔法／階段）。武器の一括捨ては「調合アイテム」内です。
                   </li>
                   <li>
-                    戦闘のメインも 2×2 の 4
-                    つ（戦う／スキル／魔法／その他）。道具と逃げるは「その他」から選びます。
+                    戦闘のメインは 2×2 の 4
+                    つ（戦う／スキル・魔法／道具／逃げる）。「スキル・魔法」で職スキルと綴りの魔法をまとめて選びます。
                   </li>
                   <li>
                     進行は端末の localStorage に自動保存されます。「続きから」で再開、「新しく冒険する」でセーブは消えます。右上「タイトルへ」で保存のまま戻れます。
@@ -699,19 +657,11 @@ export function HackAndSlashGame({
               </section>
               <section>
                 <h3 className="mb-1 text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
-                  記録（メタ）
-                </h3>
-                <p className="text-sm">
-                  タイトルに到達した最深階・層底踏破回数・「新しく冒険する」で職を選んだ回数が端末に残ります（セーブとは別キーで、消さずに残り続けます）。
-                </p>
-              </section>
-              <section>
-                <h3 className="mb-1 text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
                   魔法
                 </h3>
                 <p className="text-sm">
                   炎・氷・雷は攻撃、回復は HP
-                  回復です。各職には冒険開始時から2つの職スキルがあり、綴りでは覚えません。綴りは1〜5階で基本形（火矢・氷片・細雷・癒し）のみ、6階以降から上位（業火・凍嵐・落雷・大癒）が混ざります。探索で唱えられるのは癒し・大癒に加え、応急措置・精神統一・仮眠など職によって異なります。戦闘では「スキル」（職スキル）と「魔法」（炎氷雷・癒し）を分け、魔法内は【攻撃魔法】と【回復魔法】の順です。
+                  回復です。各職には冒険開始時から2つの職スキルがあり、綴りでは覚えません。綴りは1〜5階で基本形（火矢・氷片・細雷・癒し）のみ、6階以降から上位（業火・凍嵐・落雷・大癒）が混ざります。探索で唱えられるのは癒し・大癒に加え、応急措置・精神統一・仮眠など職によって異なります。戦闘では「スキル・魔法」に職スキルを先に、続けて【攻撃魔法】【回復魔法】の順で並びます。
                 </p>
               </section>
               <section>
@@ -873,7 +823,7 @@ export function HackAndSlashGame({
           className={
             compactExploreMain
               ? "h-[104px] shrink-0 overflow-hidden"
-              : compactCombatMain || compactCombatMisc
+              : compactCombatMain
                 ? "h-[104px] shrink-0 overflow-hidden"
                 : "touch-scroll-y max-h-[min(50dvh,20rem)] min-h-[104px] shrink-0 overflow-y-auto overscroll-y-contain"
           }

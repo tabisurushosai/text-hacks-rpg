@@ -4,11 +4,6 @@ import { Noto_Serif_JP } from "next/font/google";
 import { useCallback, useEffect, useState } from "react";
 import { useGameBgm } from "@/components/GameBgmContext";
 import { JOB_META, JOB_ORDER } from "@/lib/game/balance";
-import { formatMetaSummary } from "@/lib/game/metaRecords";
-import {
-  clearMetaFromLocalStorage,
-  loadMetaRecords,
-} from "@/lib/game/persistence";
 import type { JobId } from "@/lib/game/types";
 
 const titleSerif = Noto_Serif_JP({
@@ -40,22 +35,6 @@ export function TitleScreen({
     setTitleBgmEnabled,
     titleBgmDead,
   } = useGameBgm();
-
-  const [metaSummary, setMetaSummary] = useState(() =>
-    formatMetaSummary(loadMetaRecords()),
-  );
-
-  const resetMeta = useCallback(() => {
-    if (
-      !window.confirm(
-        "記録（最深階・踏破回数・冒険開始回数）を消します。セーブとは別です。よろしいですか？",
-      )
-    ) {
-      return;
-    }
-    clearMetaFromLocalStorage();
-    setMetaSummary(formatMetaSummary(loadMetaRecords()));
-  }, []);
 
   const confirmJob = useCallback(
     async (job: JobId) => {
@@ -164,19 +143,6 @@ export function TitleScreen({
               メッセージを閉じる
             </button>
           </div>
-        ) : null}
-
-        <p className="mb-1 max-w-lg font-sans text-xs leading-relaxed text-[var(--muted)]">
-          {metaSummary}
-        </p>
-        {step === "title" ? (
-          <button
-            type="button"
-            onClick={resetMeta}
-            className="mb-4 touch-manipulation font-sans text-[11px] text-[var(--muted)] underline decoration-[var(--border)] underline-offset-2 hover:text-[var(--text)]"
-          >
-            記録だけリセット（セーブは残る）
-          </button>
         ) : null}
 
         {step === "title" ? (
