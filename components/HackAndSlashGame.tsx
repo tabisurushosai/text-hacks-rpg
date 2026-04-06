@@ -257,7 +257,8 @@ function formatStack(name: string, count: number): string {
 export function HackAndSlashGame() {
   const [game, setGame] = useState<GameState>(() => initialGameState());
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const { bgmPlaying, bgmMissing, toggleBgm, syncPhase } = useGameBgm();
+  const { bgmPlaying, bgmMissing, toggleBgm, resetGameBgm, syncPhase } =
+    useGameBgm();
   const selectedIndexRef = useRef(0);
   const logEndRef = useRef<HTMLDivElement>(null);
   const logWrapRef = useRef<HTMLDivElement>(null);
@@ -359,6 +360,10 @@ export function HackAndSlashGame() {
         : "",
     ].join(" ");
 
+  /** アイテム列が多いとき用（メニュー内スクロール） */
+  const itemListScrollClass =
+    "max-h-[min(42vh,15rem)] overflow-y-auto overscroll-y-contain pr-0.5";
+
   /** クラフト・魔法・道具など可変行 */
   const btnClass = (selected: boolean) =>
     [
@@ -417,7 +422,7 @@ export function HackAndSlashGame() {
           {uses.length > 0 && (
             <div>
               <p className="mb-1 text-xs text-[var(--muted)]">所持品を使う</p>
-              <div className="flex flex-wrap gap-2">
+              <div className={`flex flex-wrap gap-2 ${itemListScrollClass}`}>
                 {uses.map((a) => renderBtn(a, indexOf(a.key)))}
               </div>
             </div>
@@ -456,7 +461,7 @@ export function HackAndSlashGame() {
           {uses.length > 0 ? (
             <div>
               <p className="mb-1 text-xs text-[var(--muted)]">使う</p>
-              <div className="flex flex-wrap gap-2">
+              <div className={`flex flex-wrap gap-2 ${itemListScrollClass}`}>
                 {uses.map((a) => renderBtn(a, indexOf(a.key)))}
               </div>
             </div>
@@ -622,7 +627,11 @@ export function HackAndSlashGame() {
     if (game.combatMenu === "item") {
       return (
         <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap gap-2" role="group" aria-label="道具">
+          <div
+            className={`flex flex-wrap gap-2 ${itemListScrollClass}`}
+            role="group"
+            aria-label="道具"
+          >
             {actions.slice(0, -1).map((a, i) => (
               <button
                 key={a.key}
@@ -672,19 +681,30 @@ export function HackAndSlashGame() {
               層底譚
             </h1>
           </div>
-          <button
-            type="button"
-            onClick={() => void toggleBgm()}
-            disabled={bgmMissing}
-            className="touch-manipulation shrink-0 rounded border border-[var(--border)] bg-[var(--panel)] px-2 py-1 text-xs text-[var(--text)] transition hover:border-[var(--accent)] hover:bg-[#24303d] disabled:cursor-not-allowed disabled:opacity-40"
-            title={
-              bgmMissing
-                ? "public/bgm に explore.mp3・combat.mp3、または theme.mp3 を置いてください"
-                : "探索は explore.mp3、戦闘は combat.mp3（片方だけのときはもう片方にフォールバック。theme で代用可）。タイトルは title.mp3"
-            }
-          >
-            {bgmMissing ? "BGM未設定" : bgmPlaying ? "BGM停止" : "BGM"}
-          </button>
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+            <button
+              type="button"
+              onClick={() => void toggleBgm()}
+              disabled={bgmMissing}
+              className="touch-manipulation rounded border border-[var(--border)] bg-[var(--panel)] px-2 py-1 text-xs text-[var(--text)] transition hover:border-[var(--accent)] hover:bg-[#24303d] disabled:cursor-not-allowed disabled:opacity-40"
+              title={
+                bgmMissing
+                  ? "public/bgm に explore.mp3・combat.mp3、または theme.mp3 を置いてください"
+                  : "探索は explore.mp3、戦闘は combat.mp3（片方だけのときはもう片方にフォールバック。theme で代用可）。タイトルは title.mp3"
+              }
+            >
+              {bgmMissing ? "BGM未設定" : bgmPlaying ? "BGM停止" : "BGM"}
+            </button>
+            <button
+              type="button"
+              onClick={() => resetGameBgm()}
+              disabled={bgmMissing}
+              className="touch-manipulation rounded border border-[var(--border)] bg-[var(--panel)] px-2 py-1 text-xs text-[var(--text)] transition hover:border-[var(--accent)] hover:bg-[#24303d] disabled:cursor-not-allowed disabled:opacity-40"
+              title="探索と戦闘の音源プレイヤーを作り直します。片方だけ鳴らないときに試してください。"
+            >
+              BGMリセット
+            </button>
+          </div>
         </div>
       </header>
 
@@ -758,11 +778,17 @@ export function HackAndSlashGame() {
         </div>
         <div className="mt-2 text-[var(--text)]">
           <p className="text-xs text-[var(--muted)]">所持</p>
-          <p className="text-sm">
-            {p.inventory.length === 0
-              ? "なし"
-              : p.inventory.map((it) => formatStack(it.name, it.count)).join("、")}
-          </p>
+          {p.inventory.length === 0 ? (
+            <p className="text-sm">なし</p>
+          ) : (
+            <ul
+              className={`mt-1 list-none space-y-0.5 text-sm leading-snug ${itemListScrollClass}`}
+            >
+              {p.inventory.map((it) => (
+                <li key={it.id}>{formatStack(it.name, it.count)}</li>
+              ))}
+            </ul>
+          )}
         </div>
       </section>
 

@@ -9,7 +9,7 @@ export default function Home() {
   const [started, setStarted] = useState(false);
 
   return (
-    <GameBgmProvider>
+    <GameBgmProvider titleScreenActive={!started}>
       {started ? (
         <HackAndSlashGame />
       ) : (

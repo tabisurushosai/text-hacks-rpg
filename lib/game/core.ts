@@ -64,14 +64,34 @@ function inventoryItemsMatch(a: InventoryItem, b: InventoryItem): boolean {
   return true;
 }
 
+/** 回復品は power（回復量）の大きい順、武器は攻撃力の大きい順、そのあと名前 */
+function sortInventoryItems(inv: InventoryItem[]): InventoryItem[] {
+  return [...inv].sort((a, b) => {
+    const tier = (it: InventoryItem) => (it.kind === "weapon" ? 1 : 0);
+    const ta = tier(a);
+    const tb = tier(b);
+    if (ta !== tb) return ta - tb;
+    if (ta === 0) {
+      if (b.power !== a.power) return b.power - a.power;
+      if (a.kind !== b.kind) return a.kind === "restoreHp" ? -1 : 1;
+      return a.name.localeCompare(b.name, "ja");
+    }
+    if (b.power !== a.power) return b.power - a.power;
+    return a.name.localeCompare(b.name, "ja");
+  });
+}
+
 function mergeInventory(inv: InventoryItem[], add: InventoryItem): InventoryItem[] {
   const match = inv.find((x) => inventoryItemsMatch(x, add));
+  let next: InventoryItem[];
   if (match) {
-    return inv.map((x) =>
+    next = inv.map((x) =>
       x.id === match.id ? { ...x, count: x.count + add.count } : x,
     );
+  } else {
+    next = [...inv, { ...add, id: add.id || nextItemId(), count: add.count }];
   }
-  return [...inv, { ...add, id: add.id || nextItemId(), count: add.count }];
+  return sortInventoryItems(next);
 }
 
 function countByName(inv: InventoryItem[], name: string): number {
@@ -102,7 +122,7 @@ function consumeNamed(
     if (remain > 0) next.push({ ...it, count: remain });
   }
   if (left > 0) return null;
-  return next;
+  return sortInventoryItems(next);
 }
 
 export function initialPlayer(): Player {
@@ -995,12 +1015,15 @@ export function combatMagic(state: GameState, spell: SpellId): GameState {
 function removeOneItem(inv: InventoryItem[], index: number): InventoryItem[] {
   const it = inv[index];
   if (!it) return inv;
+  let next: InventoryItem[];
   if (it.count > 1) {
-    return inv.map((x, i) =>
+    next = inv.map((x, i) =>
       i === index ? { ...x, count: x.count - 1 } : x,
     );
+  } else {
+    next = inv.filter((_, i) => i !== index);
   }
-  return inv.filter((_, i) => i !== index);
+  return sortInventoryItems(next);
 }
 
 function equipWeaponFromInventoryPlayer(
