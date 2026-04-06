@@ -526,6 +526,50 @@ export function HackAndSlashGame({
               {game.totalBattlesFought}
             </span>
           </p>
+          <ul className="mx-auto mt-4 max-w-sm space-y-1.5 text-left text-xs leading-relaxed text-[var(--muted)]">
+            <li>
+              Lv{" "}
+              <span className="text-[var(--text)]">{game.player.level}</span>
+              ／経験値{" "}
+              <span className="text-[var(--text)]">{game.player.exp}</span>
+              <span className="text-[var(--muted)]">
+                （次まであと {expUntilLevelUp(game.player)}）
+              </span>
+            </li>
+            <li>
+              習得した綴り{" "}
+              <span className="text-[var(--text)]">
+                {game.player.knownSpells.length}
+              </span>{" "}
+              種
+            </li>
+            <li>
+              所持品（かばん）: 武器{" "}
+              {game.player.inventory
+                .filter((x) => x.kind === "weapon")
+                .reduce((s, x) => s + x.count, 0)}
+              ・防具{" "}
+              {game.player.inventory
+                .filter((x) => x.kind === "armor")
+                .reduce((s, x) => s + x.count, 0)}
+              ・消耗品{" "}
+              {game.player.inventory
+                .filter(
+                  (x) => x.kind === "restoreHp" || x.kind === "restoreMp",
+                )
+                .reduce((s, x) => s + x.count, 0)}
+            </li>
+            <li className="text-[var(--text)]">
+              装備:{" "}
+              {game.player.weapon
+                ? formatWeaponEquipLine(game.player.weapon)
+                : "素手"}
+              {" ／ "}
+              {game.player.armor
+                ? formatArmorEquipLine(game.player.armor)
+                : "防具なし"}
+            </li>
+          </ul>
         </div>
         <div className="rounded border border-[var(--border)] bg-[var(--panel)] px-4 py-4 text-left text-sm text-[var(--text)]">
           <p className="mb-2 text-xs text-[var(--muted)]">
@@ -553,12 +597,19 @@ export function HackAndSlashGame({
         </p>
         <button
           type="button"
-          onClick={() =>
-            setGame((g) => (g.phase === "cleared" ? { ...g, phase: "explore" } : g))
-          }
+          onClick={() => {
+            if (onRequestTitle) {
+              saveGameToLocalStorage(gameRef.current);
+              onRequestTitle();
+            } else {
+              setGame((g) =>
+                g.phase === "cleared" ? { ...g, phase: "explore" } : g,
+              );
+            }
+          }}
           className="touch-manipulation mx-auto rounded border border-[var(--border)] bg-[var(--panel)] px-4 py-3 text-sm text-[var(--text)] transition hover:border-[var(--accent)] hover:bg-[#24303d]"
         >
-          底を歩き続ける
+          タイトルに戻る
         </button>
       </div>
     );
