@@ -31,6 +31,7 @@ import {
   templatesForFloor,
   WEAPON_SPECIAL_LABEL,
 } from "./data";
+import { BALANCE_TUNING } from "./gameConfig";
 import {
   flavorAmbientDetail,
   flavorAbyssCalm,
@@ -183,6 +184,7 @@ export function initialGameState(job: JobId): GameState {
     exploreMenu: "main",
     bossCombatTurns: 0,
     totalBattlesFought: 0,
+    pendingClientEvent: null,
     log: [
       "ダンジョンの入り口にいる。",
       "下へ続く気配がある。",
@@ -213,6 +215,7 @@ function deathHintAfterCombat(state: GameState): string | null {
 function resetToEntrance(
   job: JobId,
   prevLog: string[],
+  diedAtFloor: number,
   hint?: string | null,
 ): GameState {
   const tail = [...prevLog, "力尽きた。", "気がつくと入り口にいた。"];
@@ -220,6 +223,7 @@ function resetToEntrance(
   return {
     ...initialGameState(job),
     log: tail,
+    pendingClientEvent: { type: "death", diedAtFloor, job },
   };
 }
 
@@ -375,8 +379,11 @@ function addLootItem(
 function rollDrops(player: Player, lines: string[], floor: number): Player {
   let p = { ...player, inventory: [...player.inventory] };
 
-  /** 1 階で約 1%、階が上がるほど少しずつ上がる（上限 ~16%） */
-  const weaponChance = Math.min(0.16, 0.01 + Math.max(0, floor - 1) * 0.0167);
+  const wcfg = BALANCE_TUNING.combatLoot.weapon;
+  const weaponChance = Math.min(
+    wcfg.cap,
+    wcfg.baseChance + Math.max(0, floor - 1) * wcfg.perFloor,
+  );
   if (Math.random() < weaponChance) {
     const w = generateWeapon();
     p = addLootItem(p, {
@@ -390,7 +397,11 @@ function rollDrops(player: Player, lines: string[], floor: number): Player {
     lines.push(`${w.fullName}を拾った。所持品に入れた。`);
   }
 
-  const bookChance = Math.min(0.46, 0.32 + Math.max(0, floor - 1) * 0.018);
+  const bcfg = BALANCE_TUNING.combatLoot.spellBook;
+  const bookChance = Math.min(
+    bcfg.cap,
+    bcfg.baseMin + Math.max(0, floor - 1) * bcfg.perFloor,
+  );
   if (Math.random() < bookChance) {
     const book = pick(spellBooksLootPool(floor));
     if (!p.knownSpells.includes(book.spell)) {
@@ -404,7 +415,8 @@ function rollDrops(player: Player, lines: string[], floor: number): Player {
     }
   }
 
-  if (Math.random() < Math.min(0.48, 0.38 + floor * 0.012)) {
+  const hcfg = BALANCE_TUNING.combatLoot.herb;
+  if (Math.random() < Math.min(hcfg.cap, hcfg.intercept + floor * hcfg.perFloor)) {
     p = addLootItem(p, {
       name: ITEM_HERB,
       kind: "restoreHp",
@@ -414,7 +426,8 @@ function rollDrops(player: Player, lines: string[], floor: number): Player {
     lines.push(`薬草を拾った。苦い。`);
   }
 
-  if (Math.random() < Math.min(0.3, 0.2 + floor * 0.012)) {
+  const mcfg = BALANCE_TUNING.combatLoot.manaHerb;
+  if (Math.random() < Math.min(mcfg.cap, mcfg.intercept + floor * mcfg.perFloor)) {
     p = addLootItem(p, {
       name: ITEM_MANA_HERB,
       kind: "restoreMp",
@@ -593,6 +606,7 @@ export function explore(state: GameState): GameState {
       return resetToEntrance(
         state.job,
         [...state.log, ...lines],
+        state.floor,
         "【手がかり】探索でのダメージも積み重なる。HPが低いときは回復してから動こう。",
       );
     }
@@ -968,6 +982,9 @@ function endCombatVictory(state: GameState, lines: string[]): GameState {
     bossDefeated: wasBoss ? true : state.bossDefeated,
     player,
     log: [...state.log, ...lines],
+    pendingClientEvent: wasBoss
+      ? { type: "boss_clear", job: state.job }
+      : null,
   };
 }
 
@@ -1011,6 +1028,7 @@ function enemyTurn(state: GameState, lines: string[]): GameState {
     return resetToEntrance(
       state.job,
       [...state.log, ...lines],
+      state.floor,
       deathHintAfterCombat(state),
     );
   }

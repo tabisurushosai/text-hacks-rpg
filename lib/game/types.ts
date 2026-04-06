@@ -106,6 +106,13 @@ export type GamePhase = "explore" | "combat" | "cleared";
 /** main=行動選択 / items=調合と所持品の使用を同一画面 / magic=探索中の回復魔法のみ */
 export type ExploreMenu = "main" | "items" | "magic";
 
+/**
+ * ローカル記録・セーブ同期用。1 フレームだけ載せ、UI が処理後に除去する。
+ */
+export type PendingClientEvent =
+  | { type: "death"; diedAtFloor: number; job: JobId }
+  | { type: "boss_clear"; job: JobId };
+
 export interface GameState {
   phase: GamePhase;
   job: JobId;
@@ -113,6 +120,7 @@ export interface GameState {
   enemy: EnemyInstance | null;
   combatMenu: CombatMenu;
   log: string[];
+  pendingClientEvent?: PendingClientEvent | null;
   /** 1〜10。10階はボス。 */
   floor: number;
   /** 下り階段を発見したが未処理 */

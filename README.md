@@ -34,10 +34,11 @@
 - 戦闘メインは **2×2 の 4 コマ**（戦う／スキル／魔法／その他）。**道具**と**逃げる**は「その他」から。スキル（職）と魔法（綴りの炎・氷・雷・癒し）は分離し、魔法一覧は **【攻撃魔法】** と **【回復魔法】** の順
 - 戦闘勝利後はログに **戦闘後の HP/MP** を淡々と一行表示
 - 右上 **BGM** でループ再生（探索用・戦闘用で切替）
+- **セーブ**: 進行は `localStorage` に自動保存。タイトルの **続きから** で再開、**新しく冒険する** でセーブ削除。ゲーム中 **タイトルへ** で保存したまま戻る
+- **記録（メタ）**: 最深到達階・層底踏破回数・新規冒険開始回数を別キーで蓄積（セーブ削除では消えない）
+- 戦闘中はログ上に **敵・自分の HP/MP バー** と弱点表示。ログ文は内容で色分け
 
-**セーブ**: ブラウザを閉じると進行はリセット（周回型の 1 プレイ想定）。
-
-主要ロジックは `lib/game/core.ts`、呪文の効果は `lib/game/spellEffects.ts`、データは `lib/game/data.ts`・`lib/game/lore.ts`、メイン UI は `components/HackAndSlashGame.tsx`、行動メニュー生成は `components/buildGameActions.tsx` です。
+主要ロジックは `lib/game/core.ts`、バランス調整の数値まとめは `lib/game/gameConfig.ts`、セーブ・記録は `lib/game/persistence.ts`、呪文の効果は `lib/game/spellEffects.ts`、データは `lib/game/data.ts`・`lib/game/lore.ts`、メイン UI は `components/HackAndSlashGame.tsx`、行動メニュー生成は `components/buildGameActions.tsx` です。テストは `npm test`（Vitest）。
 
 ---
 
@@ -80,6 +81,7 @@ npm run dev
 |----------|------|
 | `npm run dev` | 開発サーバー |
 | `npm run dev:turbo` | Turbopack 版（必要なら） |
+| `npm test` | ユニットテスト（Vitest） |
 | `npm run build` | 本番ビルド |
 | `npm run start` | 本番サーバー（`build` 後） |
 | `npm run lint` | Lint |

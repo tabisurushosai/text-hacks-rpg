@@ -4,6 +4,8 @@ import { Noto_Serif_JP } from "next/font/google";
 import { useCallback, useEffect, useState } from "react";
 import { useGameBgm } from "@/components/GameBgmContext";
 import { JOB_META, JOB_ORDER } from "@/lib/game/balance";
+import { formatMetaSummary } from "@/lib/game/metaRecords";
+import { loadMetaRecords } from "@/lib/game/persistence";
 import type { JobId } from "@/lib/game/types";
 
 const titleSerif = Noto_Serif_JP({
@@ -13,10 +15,16 @@ const titleSerif = Noto_Serif_JP({
 });
 
 type TitleScreenProps = {
-  onEnter: (job: JobId) => void;
+  onNewGame: (job: JobId) => void;
+  onContinue: () => void;
+  saveAvailable: boolean;
 };
 
-export function TitleScreen({ onEnter }: TitleScreenProps) {
+export function TitleScreen({
+  onNewGame,
+  onContinue,
+  saveAvailable,
+}: TitleScreenProps) {
   const [step, setStep] = useState<"title" | "chooseJob">("title");
   const {
     startBgmExplore,
@@ -26,12 +34,14 @@ export function TitleScreen({ onEnter }: TitleScreenProps) {
     titleBgmDead,
   } = useGameBgm();
 
+  const [metaSummary] = useState(() => formatMetaSummary(loadMetaRecords()));
+
   const confirmJob = useCallback(
     async (job: JobId) => {
       await startBgmExplore();
-      onEnter(job);
+      onNewGame(job);
     },
-    [onEnter, startBgmExplore],
+    [onNewGame, startBgmExplore],
   );
 
   useEffect(() => {
@@ -119,44 +129,55 @@ export function TitleScreen({ onEnter }: TitleScreenProps) {
           層底譚
         </h1>
 
+        <p className="mb-4 max-w-lg font-sans text-xs leading-relaxed text-[var(--muted)]">
+          {metaSummary}
+        </p>
+
         {step === "title" ? (
-          <div
-            className="grid w-full max-w-lg grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-2"
-            role="group"
-            aria-label="タイトル操作"
-          >
-            <button
-              type="button"
-              onClick={() => setStep("chooseJob")}
-              className="touch-manipulation order-1 rounded border border-[#3d5c52] bg-[#15221c]/90 px-4 py-3 text-base font-semibold tracking-wide text-[var(--text)] shadow-[0_0_24px_rgba(91,140,122,0.12)] transition hover:border-[var(--accent)] hover:bg-[#1a2e26] hover:shadow-[0_0_32px_rgba(91,140,122,0.22)] active:scale-[0.99] sm:order-none sm:min-h-[4.5rem]"
-            >
-              冒険を始める
-            </button>
-            <button
-              type="button"
-              disabled={titleBgmDead}
-              aria-pressed={titleBgmEnabled}
-              onClick={() => setTitleBgmEnabled(true)}
-              className={`${btnBgm} order-2 border-[#3d5c52] sm:order-none ${
-                titleBgmEnabled
-                  ? "bg-[#1a2e26] text-[var(--text)] ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-[#080c10]"
-                  : "border-[var(--border)] bg-[#15221c]/80 text-[var(--muted)] hover:border-[var(--accent)] hover:text-[var(--text)]"
-              } disabled:cursor-not-allowed disabled:opacity-40`}
-            >
-              タイトルBGM ON
-            </button>
-            <button
-              type="button"
-              aria-pressed={!titleBgmEnabled}
-              onClick={() => setTitleBgmEnabled(false)}
-              className={`${btnBgm} order-3 border-[var(--border)] bg-[#15221c]/80 text-[var(--muted)] hover:border-[var(--accent)] hover:text-[var(--text)] sm:order-none ${
-                !titleBgmEnabled
-                  ? "ring-2 ring-[var(--border)] ring-offset-2 ring-offset-[#080c10]"
-                  : ""
-              }`}
-            >
-              タイトルBGM OFF
-            </button>
+          <div className="flex w-full max-w-lg flex-col gap-3" role="group" aria-label="タイトル操作">
+            {saveAvailable ? (
+              <button
+                type="button"
+                onClick={() => onContinue()}
+                className="touch-manipulation w-full rounded border border-[var(--accent)] bg-[#1a2e26] px-4 py-3 text-base font-semibold tracking-wide text-[var(--text)] shadow-[0_0_28px_rgba(91,140,122,0.2)] transition hover:border-[var(--accent)] hover:bg-[#243a32] active:scale-[0.99] sm:min-h-[3.25rem]"
+              >
+                続きから
+              </button>
+            ) : null}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-2">
+              <button
+                type="button"
+                onClick={() => setStep("chooseJob")}
+                className="touch-manipulation rounded border border-[#3d5c52] bg-[#15221c]/90 px-4 py-3 text-base font-semibold tracking-wide text-[var(--text)] shadow-[0_0_24px_rgba(91,140,122,0.12)] transition hover:border-[var(--accent)] hover:bg-[#1a2e26] hover:shadow-[0_0_32px_rgba(91,140,122,0.22)] active:scale-[0.99] sm:min-h-[4.5rem]"
+              >
+                新しく冒険する
+              </button>
+              <button
+                type="button"
+                disabled={titleBgmDead}
+                aria-pressed={titleBgmEnabled}
+                onClick={() => setTitleBgmEnabled(true)}
+                className={`${btnBgm} border-[#3d5c52] ${
+                  titleBgmEnabled
+                    ? "bg-[#1a2e26] text-[var(--text)] ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-[#080c10]"
+                    : "border-[var(--border)] bg-[#15221c]/80 text-[var(--muted)] hover:border-[var(--accent)] hover:text-[var(--text)]"
+                } disabled:cursor-not-allowed disabled:opacity-40`}
+              >
+                タイトルBGM ON
+              </button>
+              <button
+                type="button"
+                aria-pressed={!titleBgmEnabled}
+                onClick={() => setTitleBgmEnabled(false)}
+                className={`${btnBgm} border-[var(--border)] bg-[#15221c]/80 text-[var(--muted)] hover:border-[var(--accent)] hover:text-[var(--text)] ${
+                  !titleBgmEnabled
+                    ? "ring-2 ring-[var(--border)] ring-offset-2 ring-offset-[#080c10]"
+                    : ""
+                }`}
+              >
+                タイトルBGM OFF
+              </button>
+            </div>
           </div>
         ) : (
           <div

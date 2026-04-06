@@ -1,10 +1,18 @@
 "use client";
 
 import { buildGameActions, type ActionEntry } from "@/components/buildGameActions";
+import { CombatHud } from "@/components/CombatHud";
 import { useGameBgm } from "@/components/GameBgmContext";
 import { JOB_META, JOB_ORDER, RUN_TARGET_MINUTES } from "@/lib/game/balance";
 import { expUntilLevelUp, initialGameState } from "@/lib/game/core";
 import { formatWeaponEquipLine, SPELLS } from "@/lib/game/data";
+import { logLineTone, logToneClass } from "@/lib/game/logLineTone";
+import {
+  persistMetaAfterBossClear,
+  persistMetaAfterDeath,
+  persistMetaRunStarted,
+  saveGameToLocalStorage,
+} from "@/lib/game/persistence";
 import type { GameState, JobId, SpellId } from "@/lib/game/types";
 import {
   useCallback,
@@ -18,8 +26,18 @@ import {
 const CLEAR_BGM_DRIVE =
   "https://drive.google.com/drive/folders/1Tp3UyQZCMxpGfHYfC-gFw93FsOJm3I_V?usp=sharing";
 
-export function HackAndSlashGame({ job }: { job: JobId }) {
-  const [game, setGame] = useState<GameState>(() => initialGameState(job));
+export function HackAndSlashGame({
+  job,
+  initialSnapshot = null,
+  onRequestTitle,
+}: {
+  job: JobId;
+  initialSnapshot?: GameState | null;
+  onRequestTitle?: () => void;
+}) {
+  const [game, setGame] = useState<GameState>(
+    () => initialSnapshot ?? initialGameState(job),
+  );
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [helpOpen, setHelpOpen] = useState(false);
   const { bgmPlaying, bgmMissing, toggleBgm, resetGameBgm, syncPhase } =
@@ -32,6 +50,41 @@ export function HackAndSlashGame({ job }: { job: JobId }) {
   const gameRef = useRef(game);
   gameRef.current = game;
   selectedIndexRef.current = selectedIndex;
+
+  const metaHandledRef = useRef<Set<string>>(new Set());
+  const runStartedRecordedRef = useRef(false);
+
+  useEffect(() => {
+    if (initialSnapshot || runStartedRecordedRef.current) return;
+    runStartedRecordedRef.current = true;
+    persistMetaRunStarted();
+  }, [initialSnapshot]);
+
+  useEffect(() => {
+    const ev = game.pendingClientEvent;
+    if (!ev) return;
+    const token =
+      ev.type === "death"
+        ? `death:${ev.diedAtFloor}:${game.log.length}`
+        : `boss:${game.floor}:${game.log.length}`;
+    if (metaHandledRef.current.has(token)) {
+      setGame((g) =>
+        g.pendingClientEvent ? { ...g, pendingClientEvent: null } : g,
+      );
+      return;
+    }
+    metaHandledRef.current.add(token);
+    if (ev.type === "death") persistMetaAfterDeath(ev.diedAtFloor);
+    else persistMetaAfterBossClear(game.floor);
+    setGame((g) => ({ ...g, pendingClientEvent: null }));
+  }, [game.pendingClientEvent, game.floor, game.log.length]);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      saveGameToLocalStorage(gameRef.current);
+    }, 450);
+    return () => window.clearTimeout(t);
+  }, [game]);
 
   useEffect(() => {
     syncPhase(game.phase === "cleared" ? "explore" : game.phase);
@@ -593,7 +646,21 @@ export function HackAndSlashGame({ job }: { job: JobId }) {
                     戦闘のメインも 2×2 の 4
                     つ（戦う／スキル／魔法／その他）。道具と逃げるは「その他」から選びます。
                   </li>
+                  <li>
+                    進行は端末の localStorage に自動保存されます。「続きから」で再開、「新しく冒険する」でセーブは消えます。右上「タイトルへ」で保存のまま戻れます。
+                  </li>
+                  <li>
+                    ログは種類で色が少し変わります（ダメージ・回復・拾得・【】系の強調など）。戦闘中はログの上に敵と自分の HP/MP バーが出ます。
+                  </li>
                 </ul>
+              </section>
+              <section>
+                <h3 className="mb-1 text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
+                  記録（メタ）
+                </h3>
+                <p className="text-sm">
+                  タイトルに到達した最深階・層底踏破回数・「新しく冒険する」で職を選んだ回数が端末に残ります（セーブとは別キーで、消さずに残り続けます）。
+                </p>
               </section>
               <section>
                 <h3 className="mb-1 text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
@@ -704,21 +771,41 @@ export function HackAndSlashGame({ job }: { job: JobId }) {
             >
               BGMリセット
             </button>
+            {onRequestTitle ? (
+              <button
+                type="button"
+                onClick={() => {
+                  saveGameToLocalStorage(gameRef.current);
+                  onRequestTitle();
+                }}
+                className="touch-manipulation min-h-[36px] select-none rounded border border-[var(--border)] bg-[var(--panel)] px-2 py-1 text-xs text-[var(--muted)] transition hover:border-[var(--accent)] hover:bg-[#24303d] hover:text-[var(--text)]"
+                title="いまの状態を端末に保存してタイトルへ戻ります（続きからで再開）"
+              >
+                タイトルへ
+              </button>
+            ) : null}
           </div>
         </div>
       </header>
+
+      {inCombat && game.enemy ? (
+        <CombatHud enemy={game.enemy} player={p} />
+      ) : null}
 
       <section
         ref={logWrapRef}
         className="touch-scroll-y min-h-0 max-sm:min-h-[min(46dvh,22rem)] flex-1 overflow-y-auto rounded border border-[var(--border)] bg-[var(--panel)] px-3 py-2"
         aria-label="探索・戦闘ログ"
       >
-        <ul className="space-y-1.5 text-sm leading-relaxed text-[var(--text)]">
-          {game.log.map((line, i) => (
-            <li key={i} className="text-[var(--text)]">
-              {line}
-            </li>
-          ))}
+        <ul className="space-y-1.5 text-sm leading-relaxed">
+          {game.log.map((line, i) => {
+            const tone = logLineTone(line);
+            return (
+              <li key={i} className={logToneClass(tone)}>
+                {line}
+              </li>
+            );
+          })}
         </ul>
         <div ref={logEndRef} />
       </section>

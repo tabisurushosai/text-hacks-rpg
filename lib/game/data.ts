@@ -1,3 +1,4 @@
+import { BALANCE_TUNING } from "./gameConfig";
 import type {
   EnemyTemplate,
   InventoryItem,
@@ -122,7 +123,7 @@ export const WEAPON_SPECIAL_HINT: Record<WeaponSpecial, string> = {
   twin: "（約22%で追加攻撃）",
 };
 
-export const WEAPON_ATK_MAX = 15;
+export const WEAPON_ATK_MAX = BALANCE_TUNING.weaponAtkMax;
 
 export const WEAPON_BASES: { name: string; atk: number; category: WeaponCategory }[] =
   [
