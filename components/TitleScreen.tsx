@@ -17,9 +17,7 @@ type TitleScreenProps = {
 export function TitleScreen({ onEnter }: TitleScreenProps) {
   const {
     startBgmExplore,
-    bgmMissing,
     tryPlayTitleBgm,
-    showTitleBgmHelp,
     titleBgmEnabled,
     setTitleBgmEnabled,
     titleBgmDead,
@@ -62,7 +60,6 @@ export function TitleScreen({ onEnter }: TitleScreenProps) {
         if (titleBgmEnabled) tryPlayTitleBgm();
       }}
     >
-      {/* 奥行き：底へ沈むグラデーション */}
       <div
         className="pointer-events-none absolute inset-0"
         style={{
@@ -71,7 +68,6 @@ export function TitleScreen({ onEnter }: TitleScreenProps) {
         }}
         aria-hidden
       />
-      {/* 石畳の目安：斜めストライプ＋薄グリッド */}
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.07]"
         style={{
@@ -90,7 +86,6 @@ export function TitleScreen({ onEnter }: TitleScreenProps) {
         }}
         aria-hidden
       />
-      {/* 霧・燭気の揺らぎ */}
       <div
         className="title-screen-mist pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_30%,rgba(91,140,122,0.18),transparent_55%)]"
         aria-hidden
@@ -146,19 +141,6 @@ export function TitleScreen({ onEnter }: TitleScreenProps) {
             タイトルBGM OFF
           </button>
         </div>
-
-        {showTitleBgmHelp ? (
-          <p className="mt-6 max-w-sm font-sans text-[11px] leading-relaxed text-[var(--muted)]">
-            LINE などでは自動再生が止まることがあります。「タイトルBGM
-            ON」を押すか、画面をタップしてください。
-          </p>
-        ) : null}
-
-        <p className="mt-8 font-sans text-[11px] text-[var(--muted)] opacity-80">
-          {bgmMissing
-            ? "本編: explore.mp3 と combat.mp3（または theme）を public/bgm に"
-            : "初期状態はタイトルBGM ON · Enter でも冒険を始められます"}
-        </p>
       </div>
     </div>
   );

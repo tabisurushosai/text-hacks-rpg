@@ -1,6 +1,7 @@
 import type {
   EnemyTemplate,
   InventoryItem,
+  SpellElement,
   SpellId,
   Weapon,
   WeaponCategory,
@@ -20,37 +21,46 @@ export const FLOOR_NAMES: Record<number, string[]> = {
   9: ["歪んだ虫", "寄り添う鬼火", "老いた野犬", "厚皮の鼠", "狭間の塊"],
 };
 
+const WEAKNESS_POOL: SpellElement[] = ["fire", "ice", "thunder"];
+
 export function templatesForFloor(floor: number): EnemyTemplate[] {
   const names = FLOOR_NAMES[floor];
   if (!names) return [];
   return names.map((name, i) => {
+    const weakness =
+      Math.random() < 0.4
+        ? WEAKNESS_POOL[(i + floor * 2) % WEAKNESS_POOL.length]
+        : undefined;
     if (floor === 1) {
       return {
         key: `f${floor}_e${i}`,
         name,
-        maxHp: 5 + i * 2,
-        atk: 1 + (i % 2),
+        maxHp: 4 + i * 2,
+        atk: 1,
         def: 0,
         expReward: 2 + i,
+        weakness,
       };
     }
     if (floor === 2) {
       return {
         key: `f${floor}_e${i}`,
         name,
-        maxHp: 9 + i * 2,
-        atk: 1 + (i % 3),
+        maxHp: 7 + i * 2,
+        atk: 1 + (i % 2),
         def: i === 2 ? 1 : 0,
         expReward: 3 + i,
+        weakness,
       };
     }
     return {
       key: `f${floor}_e${i}`,
       name,
-      maxHp: 12 + floor * 6 + i * 3,
-      atk: 2 + Math.floor(floor * 1.7) + (i % 3),
-      def: Math.min(6, Math.floor((floor + i) / 3)),
+      maxHp: 9 + floor * 5 + i * 2,
+      atk: 1 + Math.floor(floor * 1.35) + (i % 3),
+      def: Math.min(5, Math.floor((floor + i) / 3)),
       expReward: 4 + floor * 2 + i,
+      weakness,
     };
   });
 }
@@ -58,9 +68,9 @@ export function templatesForFloor(floor: number): EnemyTemplate[] {
 export const BOSS_TEMPLATE: EnemyTemplate = {
   key: "boss_depth",
   name: "深層の主",
-  maxHp: 240,
-  atk: 24,
-  def: 9,
+  maxHp: 175,
+  atk: 17,
+  def: 7,
   expReward: 100,
 };
 
@@ -79,6 +89,15 @@ export const WEAPON_SPECIAL_LABEL: Record<WeaponSpecial, string> = {
   keen: "心眼",
   piercing: "貫通",
   twin: "連閃",
+};
+
+/** 装備・所持のツールチップ用（括弧内に数値イメージ） */
+export const WEAPON_SPECIAL_HINT: Record<WeaponSpecial, string> = {
+  none: "",
+  vampiric: "（与ダメの約12%をHP回収）",
+  keen: "（会心率アップ）",
+  piercing: "（防御を一部無視してダメージ）",
+  twin: "（約22%で追加攻撃）",
 };
 
 export const WEAPON_BASES: { name: string; atk: number; category: WeaponCategory }[] =
@@ -119,45 +138,67 @@ export const SPELLS: Record<
   SpellId,
   { label: string; mpCost: number; description: string }
 > = {
-  ember: {
-    label: "小火",
+  fire_jolt: {
+    label: "火矢",
     mpCost: 4,
-    description: "魔力の火。防の一部を無視する。",
+    description: "炎の基本。ダメージ特化。",
   },
-  fireball: {
-    label: "火球",
-    mpCost: 7,
-    description: "防具を通さない純粋な爆炎。高威力。",
+  fire_blast: {
+    label: "業火",
+    mpCost: 8,
+    description: "高威力の炎。ダメージのみ。",
   },
-  spark: {
-    label: "雷線",
+  ice_shard: {
+    label: "氷片",
+    mpCost: 5,
+    description: "氷で攻撃。ダメージと拘束が半々くらい。",
+  },
+  ice_wrath: {
+    label: "凍嵐",
+    mpCost: 9,
+    description: "強い氷。高ダメージと拘束。",
+  },
+  volt_needle: {
+    label: "細雷",
     mpCost: 3,
-    description: "素早い雷。MP が少なくて済む。",
+    description: "ダメージは控えめ。拘束が入りやすい。",
   },
-  thunder: {
+  volt_chain: {
     label: "落雷",
     mpCost: 10,
-    description: "大電流。防を無視した一撃。",
+    description: "雷の一撃。高確率で相手を動けなくする。",
   },
-  frost: {
-    label: "凍霧",
-    mpCost: 5,
-    description: "威力は控えめ。凍結で数ターン行動を封じることがある（ボスには効きにくい）。",
-  },
-  mend: {
+  heal_soft: {
     label: "癒し",
-    mpCost: 5,
-    description: "体力をしっかり回復する。",
+    mpCost: 4,
+    description: "HPを少し回復。",
+  },
+  heal_solid: {
+    label: "大癒",
+    mpCost: 9,
+    description: "HPを大きく回復。",
   },
 };
 
+/** 弱点判定に使う（回復は未定義） */
+export const SPELL_ELEMENT: Partial<Record<SpellId, SpellElement>> = {
+  fire_jolt: "fire",
+  fire_blast: "fire",
+  ice_shard: "ice",
+  ice_wrath: "ice",
+  volt_needle: "thunder",
+  volt_chain: "thunder",
+};
+
 export const SPELL_BOOKS: { name: string; spell: SpellId }[] = [
-  { name: "火の綴り", spell: "ember" },
-  { name: "爆炎の綴り", spell: "fireball" },
-  { name: "雷の綴り", spell: "spark" },
-  { name: "大雷の綴り", spell: "thunder" },
-  { name: "氷の綴り", spell: "frost" },
-  { name: "祈りの綴り", spell: "mend" },
+  { name: "火の綴り", spell: "fire_jolt" },
+  { name: "爆炎の綴り", spell: "fire_blast" },
+  { name: "氷の綴り", spell: "ice_shard" },
+  { name: "凍嵐の綴り", spell: "ice_wrath" },
+  { name: "雷糸の綴り", spell: "volt_needle" },
+  { name: "大雷の綴り", spell: "volt_chain" },
+  { name: "祈りの綴り", spell: "heal_soft" },
+  { name: "聖句の綴り", spell: "heal_solid" },
 ];
 
 /** クラフト: 5個で1つ */
@@ -198,7 +239,9 @@ export function formatWeaponEquipLine(w: Weapon): string {
   const cat = WEAPON_CATEGORY_LABEL[w.category];
   const sp =
     w.special !== "none" ? `・${WEAPON_SPECIAL_LABEL[w.special]}` : "";
-  return `${w.fullName}（+${w.atk} ${cat}${sp}）`;
+  const hint =
+    w.special !== "none" ? WEAPON_SPECIAL_HINT[w.special] : "";
+  return `${w.fullName}（+${w.atk} ${cat}${sp}${hint}）`;
 }
 
 export function inventoryWeaponTitle(it: InventoryItem): string | undefined {
@@ -206,5 +249,6 @@ export function inventoryWeaponTitle(it: InventoryItem): string | undefined {
   const cat = WEAPON_CATEGORY_LABEL[it.weaponCategory ?? "sword"];
   const sp = it.weaponSpecial ?? "none";
   const tag = sp !== "none" ? ` ${WEAPON_SPECIAL_LABEL[sp]}` : "";
-  return `攻撃+${it.power} ${cat}${tag}`;
+  const hint = sp !== "none" ? WEAPON_SPECIAL_HINT[sp] : "";
+  return `攻撃+${it.power} ${cat}${tag}${hint}`;
 }

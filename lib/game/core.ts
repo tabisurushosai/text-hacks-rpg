@@ -10,6 +10,7 @@ import {
   POTION_MEDIUM_HP_POWER,
   POTION_MEDIUM_MP_POWER,
   SPELL_BOOKS,
+  SPELL_ELEMENT,
   SPELLS,
   WEAPON_BASES,
   WEAPON_PREFIXES,
@@ -187,6 +188,7 @@ function spawnEnemyForFloor(floor: number): EnemyInstance {
     atk: t.atk,
     def: t.def,
     expReward: t.expReward,
+    weakness: t.weakness,
   };
 }
 
@@ -429,6 +431,45 @@ export function explore(state: GameState): GameState {
     return { ...state, stairsVisible: true, log: [...state.log, ...lines] };
   }
 
+  if (f < 10 && Math.random() < 0.048) {
+    const msg = pick([
+      "泉が湧いている。水を飲んだ。",
+      "冷たい泉。体が軽くなった。",
+      "光る水たまり。触れたら傷が癒えた。",
+      "床に魔法陣が淡く光っている。佇むと力が満ちてきた。",
+    ]);
+    lines.push(msg);
+    const pl = state.player;
+    return {
+      ...state,
+      player: { ...pl, hp: pl.maxHp, mp: pl.maxMp },
+      log: [...state.log, ...lines, "HPとMPが全快した。"],
+    };
+  }
+
+  if (f < 10 && Math.random() < 0.055) {
+    const pl = state.player;
+    const fh = 0.45 + Math.random() * 0.35;
+    const fm = 0.4 + Math.random() * 0.35;
+    const nh = clamp(pl.hp + Math.floor(pl.maxHp * fh), 0, pl.maxHp);
+    const nm = clamp(pl.mp + Math.floor(pl.maxMp * fm), 0, pl.maxMp);
+    if (nh > pl.hp || nm > pl.mp) {
+      lines.push(
+        pick([
+          "壁に刻まれた印が、一瞬だけ体温を上げた。",
+          "足元の文様が揺らいだ。魔力が返ってくる。",
+          "朽ちた祭壇。そこに手を当てると、力が戻ってきた。",
+        ]),
+      );
+      lines.push(`HP+${nh - pl.hp} MP+${nm - pl.mp}。`);
+      return {
+        ...state,
+        player: { ...pl, hp: nh, mp: nm },
+        log: [...state.log, ...lines],
+      };
+    }
+  }
+
   if (Math.random() < 0.02) {
     lines.push("箱に近づいた。動いた。");
     const enemy = spawnEnemyForFloor(f);
@@ -626,22 +667,84 @@ export function dismissStairs(state: GameState): GameState {
   };
 }
 
-export function openCraftMenu(state: GameState): GameState {
+/** 調合と所持アイテムの使用をまとめたサブ画面 */
+export function openItemsMenu(state: GameState): GameState {
   if (state.phase !== "explore") return state;
-  return { ...state, exploreMenu: "craft" };
+  return { ...state, exploreMenu: "items" };
 }
 
-export function closeCraftMenu(state: GameState): GameState {
+export function closeItemsMenu(state: GameState): GameState {
   return { ...state, exploreMenu: "main" };
 }
 
-export function openUseItemMenu(state: GameState): GameState {
+export function openExploreMagicMenu(state: GameState): GameState {
   if (state.phase !== "explore") return state;
-  return { ...state, exploreMenu: "use" };
+  return { ...state, exploreMenu: "magic" };
 }
 
-export function closeUseItemMenu(state: GameState): GameState {
+export function closeExploreMagicMenu(state: GameState): GameState {
   return { ...state, exploreMenu: "main" };
+}
+
+const EXPLORE_HEAL_SPELLS: SpellId[] = ["heal_soft", "heal_solid"];
+
+/** 探索中のみ。回復魔法（癒し・大癒）を唱える */
+export function exploreMagic(state: GameState, spell: SpellId): GameState {
+  if (state.phase !== "explore") return state;
+  if (!EXPLORE_HEAL_SPELLS.includes(spell)) return state;
+  if (!state.player.knownSpells.includes(spell)) return state;
+
+  const cost = SPELLS[spell].mpCost;
+  if (state.player.mp < cost) {
+    return {
+      ...state,
+      log: [...state.log, "MPが足りない。"],
+    };
+  }
+
+  let player = { ...state.player, mp: state.player.mp - cost };
+  const lines: string[] = [];
+  const lv = player.level;
+
+  if (spell === "heal_soft") {
+    const heal =
+      10 + Math.floor(Math.random() * 6) + Math.floor(lv * 0.75);
+    const nh = clamp(player.hp + heal, 0, player.maxHp);
+    lines.push(`癒しを唱えた。HPが${nh - player.hp}回復した。`);
+    player = { ...player, hp: nh };
+  } else {
+    const heal =
+      22 + Math.floor(Math.random() * 11) + Math.floor(lv * 1.35);
+    const nh = clamp(player.hp + heal, 0, player.maxHp);
+    lines.push(`大癒を唱えた。HPが${nh - player.hp}回復した。`);
+    player = { ...player, hp: nh };
+  }
+
+  return {
+    ...state,
+    player,
+    log: [...state.log, ...lines],
+  };
+}
+
+/** 所持している武器アイテムをすべて捨てる（装備中はインベントリに無いので残る） */
+export function discardInventoryWeapons(state: GameState): GameState {
+  if (state.phase !== "explore") return state;
+  const inv = state.player.inventory;
+  const weapons = inv.filter((x) => x.kind === "weapon");
+  const n = weapons.reduce((s, w) => s + w.count, 0);
+  if (n === 0) {
+    return {
+      ...state,
+      log: [...state.log, "捨てる武器がない。"],
+    };
+  }
+  const nextInv = sortInventoryItems(inv.filter((x) => x.kind !== "weapon"));
+  return {
+    ...state,
+    player: { ...state.player, inventory: nextInv },
+    log: [...state.log, `所持の武器を${n}件手放した。`],
+  };
 }
 
 function craft(
@@ -805,7 +908,7 @@ function endCombatVictory(state: GameState, lines: string[]): GameState {
 
   return {
     ...state,
-    phase: "explore",
+    phase: wasBoss ? "cleared" : "explore",
     enemy: null,
     combatMenu: "main",
     bossCombatTurns: 0,
@@ -820,7 +923,7 @@ function enemyTurn(state: GameState, lines: string[]): GameState {
   if (!enemy || enemy.hp <= 0) return state;
   const frozen = enemy.frozenTurns ?? 0;
   if (frozen > 0) {
-    lines.push(`${enemy.name}は凍りついている。`);
+    lines.push(`${enemy.name}は動けない。`);
     const nextEnemy: EnemyInstance = {
       ...enemy,
       frozenTurns: frozen - 1,
@@ -911,6 +1014,51 @@ export function combatFight(state: GameState): GameState {
   return enemyTurn(next, []);
 }
 
+function applyElementalMagicDamage(
+  lines: string[],
+  enemy: EnemyInstance,
+  spell: SpellId,
+  rawDmg: number,
+): void {
+  let dmg = rawDmg;
+  const el = SPELL_ELEMENT[spell];
+  if (el && enemy.weakness === el) {
+    dmg = Math.floor(dmg * 1.52);
+    lines.push("弱点を突いた！");
+  }
+  enemy.hp = clamp(enemy.hp - dmg, 0, enemy.maxHp);
+  lines.push(`${dmg}のダメージ。`);
+}
+
+function tryApplyStun(
+  lines: string[],
+  enemy: EnemyInstance,
+  normalChance: number,
+  normalTurnsMin: number,
+  normalTurnsMax: number,
+  bossChance: number,
+  bossTurns: number,
+): void {
+  if (enemy.isBoss) {
+    if (Math.random() < bossChance) {
+      const prev = enemy.frozenTurns ?? 0;
+      enemy.frozenTurns = Math.max(prev, bossTurns);
+      lines.push(
+        `${enemy.name}は動けない（あと${enemy.frozenTurns}ターン）。`,
+      );
+    }
+    return;
+  }
+  if (Math.random() < normalChance) {
+    const t =
+      normalTurnsMin +
+      Math.floor(Math.random() * (normalTurnsMax - normalTurnsMin + 1));
+    const prev = enemy.frozenTurns ?? 0;
+    enemy.frozenTurns = Math.max(prev, t);
+    lines.push(`${enemy.name}は動けない（あと${enemy.frozenTurns}ターン）。`);
+  }
+}
+
 export function combatMagic(state: GameState, spell: SpellId): GameState {
   if (state.phase !== "combat" || !state.enemy) return state;
   if (!state.player.knownSpells.includes(spell)) return state;
@@ -930,71 +1078,78 @@ export function combatMagic(state: GameState, spell: SpellId): GameState {
   const floor = state.floor;
   const lv = player.level;
 
-  const applyMagicDamage = (dmg: number, msg: string) => {
-    enemy.hp = clamp(enemy.hp - dmg, 0, enemy.maxHp);
-    lines.push(`${msg}${dmg}のダメージ。`);
-  };
-
-  if (spell === "ember") {
+  if (spell === "fire_jolt") {
     const raw =
       8 +
       Math.floor(Math.random() * 7) +
-      Math.floor(lv * 1.5) +
-      Math.floor(floor * 0.45);
-    const pierce = Math.floor(enemy.def * 0.45);
+      Math.floor(lv * 1.45) +
+      Math.floor(floor * 0.42);
+    const pierce = Math.floor(enemy.def * 0.42);
     const dmg = Math.max(2, raw - pierce);
-    applyMagicDamage(dmg, "小火を放った。");
-  } else if (spell === "fireball") {
+    lines.push("火矢を放った。");
+    applyElementalMagicDamage(lines, enemy, spell, dmg);
+  } else if (spell === "fire_blast") {
     const raw =
-      14 +
+      15 +
       Math.floor(Math.random() * 9) +
-      Math.floor(lv * 2.1) +
-      Math.floor(floor * 0.55);
+      Math.floor(lv * 2.05) +
+      Math.floor(floor * 0.52);
     const dmg = Math.max(4, raw);
-    applyMagicDamage(dmg, "火球が炸裂した。");
-  } else if (spell === "spark") {
-    const raw =
-      4 +
-      Math.floor(Math.random() * 5) +
-      Math.floor(lv * 0.9) +
-      Math.floor(floor * 0.25);
-    const dmg = Math.max(2, raw);
-    applyMagicDamage(dmg, "雷線が走った。");
-  } else if (spell === "thunder") {
-    const raw =
-      20 +
-      Math.floor(Math.random() * 11) +
-      Math.floor(lv * 2.6) +
-      Math.floor(floor * 0.65);
-    const dmg = Math.max(6, raw);
-    applyMagicDamage(dmg, "落雷が敵を直撃した。");
-  } else if (spell === "frost") {
+    lines.push("業火が敵を包んだ。");
+    applyElementalMagicDamage(lines, enemy, spell, dmg);
+  } else if (spell === "ice_shard") {
     const raw =
       5 +
       Math.floor(Math.random() * 6) +
-      Math.floor(lv * 1.1) +
-      Math.floor(floor * 0.35);
-    const pierce = Math.floor(enemy.def * 0.25);
+      Math.floor(lv * 1.05) +
+      Math.floor(floor * 0.32);
+    const pierce = Math.floor(enemy.def * 0.22);
     const dmg = Math.max(2, raw - pierce);
-    applyMagicDamage(dmg, "凍霧を浴びせた。");
-    if (!enemy.isBoss) {
-      if (Math.random() < 0.4) {
-        const t = 1 + Math.floor(Math.random() * 3);
-        const prev = enemy.frozenTurns ?? 0;
-        enemy.frozenTurns = Math.max(prev, t);
-        lines.push(`${enemy.name}は身動きがとれない（あと${enemy.frozenTurns}ターン）。`);
-      }
-    } else if (Math.random() < 0.14) {
-      enemy.frozenTurns = Math.max(enemy.frozenTurns ?? 0, 1);
-      lines.push(`${enemy.name}の動きが一瞬鈍った。`);
-    }
-  } else if (spell === "mend") {
-    const heal =
-      12 +
+    lines.push("氷片を叩きつけた。");
+    applyElementalMagicDamage(lines, enemy, spell, dmg);
+    tryApplyStun(lines, enemy, 0.48, 2, 4, 0.24, 1);
+  } else if (spell === "ice_wrath") {
+    const raw =
+      11 +
+      Math.floor(Math.random() * 8) +
+      Math.floor(lv * 1.75) +
+      Math.floor(floor * 0.48);
+    const pierce = Math.floor(enemy.def * 0.3);
+    const dmg = Math.max(3, raw - pierce);
+    lines.push("凍嵐を巻き起こした。");
+    applyElementalMagicDamage(lines, enemy, spell, dmg);
+    tryApplyStun(lines, enemy, 0.62, 2, 4, 0.32, 2);
+  } else if (spell === "volt_needle") {
+    const raw =
+      3 +
+      Math.floor(Math.random() * 4) +
+      Math.floor(lv * 0.75) +
+      Math.floor(floor * 0.22);
+    const dmg = Math.max(1, raw);
+    lines.push("細い雷が刺さった。");
+    applyElementalMagicDamage(lines, enemy, spell, dmg);
+    tryApplyStun(lines, enemy, 0.74, 2, 4, 0.38, 1);
+  } else if (spell === "volt_chain") {
+    const raw =
+      9 +
       Math.floor(Math.random() * 7) +
-      Math.floor(lv * 0.85);
+      Math.floor(lv * 1.35) +
+      Math.floor(floor * 0.38);
+    const dmg = Math.max(2, raw);
+    lines.push("落雷が走った。");
+    applyElementalMagicDamage(lines, enemy, spell, dmg);
+    tryApplyStun(lines, enemy, 0.86, 3, 4, 0.46, 2);
+  } else if (spell === "heal_soft") {
+    const heal =
+      10 + Math.floor(Math.random() * 6) + Math.floor(lv * 0.75);
     const nh = clamp(player.hp + heal, 0, player.maxHp);
     lines.push(`癒しを唱えた。HPが${nh - player.hp}回復した。`);
+    player = { ...player, hp: nh };
+  } else if (spell === "heal_solid") {
+    const heal =
+      22 + Math.floor(Math.random() * 11) + Math.floor(lv * 1.35);
+    const nh = clamp(player.hp + heal, 0, player.maxHp);
+    lines.push(`大癒を唱えた。HPが${nh - player.hp}回復した。`);
     player = { ...player, hp: nh };
   }
 

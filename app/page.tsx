@@ -11,9 +11,9 @@ export default function Home() {
   return (
     <GameBgmProvider titleScreenActive={!started}>
       {started ? (
-        <HackAndSlashGame />
+        <HackAndSlashGame key="game" />
       ) : (
-        <TitleScreen onEnter={() => setStarted(true)} />
+        <TitleScreen key="title" onEnter={() => setStarted(true)} />
       )}
     </GameBgmProvider>
   );

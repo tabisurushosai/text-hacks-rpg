@@ -20,8 +20,8 @@ import {
   SPELLS,
 } from "@/lib/game/data";
 import {
-  closeCraftMenu,
-  closeUseItemMenu,
+  closeExploreMagicMenu,
+  closeItemsMenu,
   combatFight,
   combatItem,
   combatMagic,
@@ -32,16 +32,22 @@ import {
   craftMinorHpPotion,
   craftMinorMpPotion,
   descendStairs,
+  discardInventoryWeapons,
   explore,
+  exploreMagic,
   expUntilLevelUp,
   initialGameState,
   inventoryActionLabel,
-  openCraftMenu,
-  openUseItemMenu,
+  openExploreMagicMenu,
+  openItemsMenu,
   useItemExplore,
 } from "@/lib/game/core";
 import { useGameBgm } from "@/components/GameBgmContext";
 import type { GameState, SpellId } from "@/lib/game/types";
+
+/** クリア報酬（本作 BGM） */
+const CLEAR_BGM_DRIVE =
+  "https://drive.google.com/drive/folders/1Tp3UyQZCMxpGfHYfC-gFw93FsOJm3I_V?usp=sharing";
 
 type ActionEntry = {
   key: string;
@@ -58,8 +64,12 @@ function buildActions(
   const p = game.player;
   const inCombat = game.phase === "combat" && game.enemy;
 
+  if (game.phase === "cleared") {
+    return [];
+  }
+
   if (game.phase === "explore") {
-    if (game.exploreMenu === "craft") {
+    if (game.exploreMenu === "items") {
       const herbs = countMaterial(game, ITEM_HERB);
       const manaHerbs = countMaterial(game, ITEM_MANA_HERB);
       const minorHp = countMaterial(game, ITEM_POTION_MINOR);
@@ -107,33 +117,48 @@ function buildActions(
         ...craftsTier,
         ...useEntries,
         {
-          key: "back-craft",
+          key: "back-items",
           label: "戻る",
-          onActivate: () => setGame((g) => closeCraftMenu(g)),
+          onActivate: () => setGame((g) => closeItemsMenu(g)),
         },
       ];
     }
 
-    if (game.exploreMenu === "use") {
-      const useEntries: ActionEntry[] = p.inventory.map((it) => ({
-        key: `explore-use-${it.id}`,
-        label: inventoryActionLabel(it),
-        title: inventoryWeaponTitle(it),
-        onActivate: () =>
-          setGame((g) => {
-            const idx = g.player.inventory.findIndex((x) => x.id === it.id);
-            return useItemExplore(g, idx >= 0 ? idx : 0);
-          }),
-      }));
+    if (game.exploreMenu === "magic") {
+      const healIds = (["heal_soft", "heal_solid"] as const).filter((sid) =>
+        p.knownSpells.includes(sid),
+      );
+      const spellEntries: ActionEntry[] = healIds.map((sid) => {
+        const cost = SPELLS[sid].mpCost;
+        const disabled = p.mp < cost;
+        return {
+          key: `explore-magic-${sid}`,
+          label: `${SPELLS[sid].label}（MP ${cost}）`,
+          disabled,
+          title: SPELLS[sid].description,
+          onActivate: () => {
+            if (disabled) return;
+            setGame((g) => exploreMagic(g, sid));
+          },
+        };
+      });
       return [
-        ...useEntries,
+        ...spellEntries,
         {
-          key: "back-use",
+          key: "back-explore-magic",
           label: "戻る",
-          onActivate: () => setGame((g) => closeUseItemMenu(g)),
+          onActivate: () => setGame((g) => closeExploreMagicMenu(g)),
         },
       ];
     }
+
+    const weaponHeld = p.inventory
+      .filter((x) => x.kind === "weapon")
+      .reduce((s, w) => s + w.count, 0);
+
+    const knowsExploreHeal = p.knownSpells.some(
+      (s) => s === "heal_soft" || s === "heal_solid",
+    );
 
     const main: ActionEntry[] = [
       {
@@ -142,15 +167,35 @@ function buildActions(
         onActivate: () => setGame((g) => explore(g)),
       },
       {
-        key: "craft-open",
-        label: "クラフト",
-        onActivate: () => setGame((g) => openCraftMenu(g)),
+        key: "items-open",
+        label: "調合・アイテム",
+        onActivate: () => setGame((g) => openItemsMenu(g)),
       },
       {
-        key: "open-use",
-        label: "アイテムを使う",
-        disabled: p.inventory.length === 0,
-        onActivate: () => setGame((g) => openUseItemMenu(g)),
+        key: "explore-magic-open",
+        label: "魔法（回復）",
+        disabled: !knowsExploreHeal,
+        title: knowsExploreHeal
+          ? "探索中に回復魔法を唱えます"
+          : "回復の綴りを拾うと使えるようになります",
+        onActivate: () =>
+          setGame((g) => {
+            if (
+              !g.player.knownSpells.some(
+                (s) => s === "heal_soft" || s === "heal_solid",
+              )
+            ) {
+              return { ...g, log: [...g.log, "まだ回復の魔法を知らない。"] };
+            }
+            return openExploreMagicMenu(g);
+          }),
+      },
+      {
+        key: "discard-weapons",
+        label: "装備以外の武器を捨てる",
+        disabled: weaponHeld === 0,
+        title: "所持している武器だけをまとめて捨てます（装備中は残ります）",
+        onActivate: () => setGame((g) => discardInventoryWeapons(g)),
       },
     ];
     if (game.stairsVisible && game.floor < 10) {
@@ -267,7 +312,7 @@ export function HackAndSlashGame() {
   selectedIndexRef.current = selectedIndex;
 
   useEffect(() => {
-    syncPhase(game.phase);
+    syncPhase(game.phase === "cleared" ? "explore" : game.phase);
   }, [game.phase, syncPhase]);
 
   const actions = useMemo(() => buildActions(game, setGame), [game, setGame]);
@@ -377,15 +422,17 @@ export function HackAndSlashGame() {
     ].join(" ");
 
   const renderExploreButtons = () => {
-    if (game.exploreMenu === "craft") {
-      const craftFromHerbKeys = new Set(["craft-hp", "craft-mp"]);
-      const craftTierKeys = new Set(["craft-hp-med", "craft-mp-med"]);
-      const craftsHerb = actions.filter((a) => craftFromHerbKeys.has(a.key));
-      const craftsTier = actions.filter((a) => craftTierKeys.has(a.key));
-      const uses = actions.filter(
-        (a) => a.key.startsWith("explore-use-"),
+    if (game.exploreMenu === "items") {
+      const itemKeys = new Set([
+        "craft-hp",
+        "craft-mp",
+        "craft-hp-med",
+        "craft-mp-med",
+      ]);
+      const mainEntries = actions.filter(
+        (a) => itemKeys.has(a.key) || a.key.startsWith("explore-use-"),
       );
-      const back = actions.find((a) => a.key === "back-craft");
+      const back = actions.find((a) => a.key === "back-items");
       const indexOf = (key: string) => actions.findIndex((a) => a.key === key);
       const renderBtn = (a: ActionEntry, i: number) => (
         <button
@@ -404,29 +451,13 @@ export function HackAndSlashGame() {
         </button>
       );
       return (
-        <div className="space-y-2" role="group" aria-label="クラフトと所持品">
-          <div>
-            <p className="mb-1 text-xs text-[var(--muted)]">クラフト（草から）</p>
-            <div className="flex flex-wrap gap-2">
-              {craftsHerb.map((a) => renderBtn(a, indexOf(a.key)))}
-            </div>
+        <div className="space-y-2" role="group" aria-label="調合と所持品">
+          <p className="text-xs text-[var(--muted)]">
+            調合と所持品の使用（装備・消費）
+          </p>
+          <div className={`flex flex-wrap gap-2 ${itemListScrollClass}`}>
+            {mainEntries.map((a) => renderBtn(a, indexOf(a.key)))}
           </div>
-          <div>
-            <p className="mb-1 text-xs text-[var(--muted)]">
-              精製（初級ポーション×{CRAFT_COST}→中級）
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {craftsTier.map((a) => renderBtn(a, indexOf(a.key)))}
-            </div>
-          </div>
-          {uses.length > 0 && (
-            <div>
-              <p className="mb-1 text-xs text-[var(--muted)]">所持品を使う</p>
-              <div className={`flex flex-wrap gap-2 ${itemListScrollClass}`}>
-                {uses.map((a) => renderBtn(a, indexOf(a.key)))}
-              </div>
-            </div>
-          )}
           {back && (
             <div className="pt-1">
               {renderBtn(back, indexOf(back.key))}
@@ -436,9 +467,9 @@ export function HackAndSlashGame() {
       );
     }
 
-    if (game.exploreMenu === "use") {
-      const uses = actions.filter((a) => a.key.startsWith("explore-use-"));
-      const back = actions.find((a) => a.key === "back-use");
+    if (game.exploreMenu === "magic") {
+      const spells = actions.filter((a) => a.key.startsWith("explore-magic-"));
+      const back = actions.find((a) => a.key === "back-explore-magic");
       const indexOf = (key: string) => actions.findIndex((a) => a.key === key);
       const renderBtn = (a: ActionEntry, i: number) => (
         <button
@@ -457,17 +488,11 @@ export function HackAndSlashGame() {
         </button>
       );
       return (
-        <div className="space-y-2" role="group" aria-label="アイテム">
-          {uses.length > 0 ? (
-            <div>
-              <p className="mb-1 text-xs text-[var(--muted)]">使う</p>
-              <div className={`flex flex-wrap gap-2 ${itemListScrollClass}`}>
-                {uses.map((a) => renderBtn(a, indexOf(a.key)))}
-              </div>
-            </div>
-          ) : (
-            <p className="text-xs text-[var(--muted)]">所持品がない。</p>
-          )}
+        <div className="space-y-2" role="group" aria-label="回復魔法">
+          <p className="text-xs text-[var(--muted)]">探索中の回復魔法</p>
+          <div className="flex flex-wrap gap-2">
+            {spells.map((a) => renderBtn(a, indexOf(a.key)))}
+          </div>
           {back && (
             <div className="pt-1">
               {renderBtn(back, indexOf(back.key))}
@@ -479,74 +504,39 @@ export function HackAndSlashGame() {
 
     if (game.exploreMenu === "main") {
       const exploreA = actions.find((a) => a.key === "explore");
-      const craftA = actions.find((a) => a.key === "craft-open");
-      const useA = actions.find((a) => a.key === "open-use");
+      const itemsA = actions.find((a) => a.key === "items-open");
+      const magicA = actions.find((a) => a.key === "explore-magic-open");
+      const discardA = actions.find((a) => a.key === "discard-weapons");
       const descendA = actions.find((a) => a.key === "descend");
-      if (!exploreA || !craftA || !useA) return null;
+      if (!exploreA || !itemsA || !magicA || !discardA) return null;
 
-      const iExplore = actions.indexOf(exploreA);
-      const iCraft = actions.indexOf(craftA);
-      const iUse = actions.indexOf(useA);
-      const iDescend = descendA ? actions.indexOf(descendA) : -1;
+      const row: ActionEntry[] = [exploreA, itemsA, magicA, discardA];
+      if (descendA) row.push(descendA);
 
       return (
         <div className="grid grid-cols-2 gap-2" role="group" aria-label="行動">
-          <button
-            type="button"
-            className={btnClassGrid(selectedIndex === iExplore)}
-            disabled={exploreA.disabled}
-            aria-current={selectedIndex === iExplore ? "true" : undefined}
-            onClick={() => {
-              setSelectedIndex(iExplore);
-              if (!exploreA.disabled) exploreA.onActivate();
-            }}
-          >
-            {exploreA.label}
-          </button>
-          <button
-            type="button"
-            className={btnClassGrid(selectedIndex === iCraft)}
-            disabled={craftA.disabled}
-            aria-current={selectedIndex === iCraft ? "true" : undefined}
-            onClick={() => {
-              setSelectedIndex(iCraft);
-              if (!craftA.disabled) craftA.onActivate();
-            }}
-          >
-            {craftA.label}
-          </button>
-          <button
-            type="button"
-            className={btnClassGrid(selectedIndex === iUse)}
-            disabled={useA.disabled}
-            title={useA.disabled ? "所持品がありません" : undefined}
-            aria-current={selectedIndex === iUse ? "true" : undefined}
-            onClick={() => {
-              setSelectedIndex(iUse);
-              if (!useA.disabled) useA.onActivate();
-            }}
-          >
-            {useA.label}
-          </button>
-          {descendA && iDescend >= 0 ? (
-            <button
-              type="button"
-              className={btnClassGrid(selectedIndex === iDescend)}
-              disabled={descendA.disabled}
-              aria-current={selectedIndex === iDescend ? "true" : undefined}
-              onClick={() => {
-                setSelectedIndex(iDescend);
-                if (!descendA.disabled) descendA.onActivate();
-              }}
-            >
-              {descendA.label}
-            </button>
-          ) : (
-            <div
-              className="min-h-[48px] sm:min-h-0"
-              aria-hidden
-            />
-          )}
+          {row.map((a) => {
+            const i = actions.indexOf(a);
+            return (
+              <button
+                key={a.key}
+                type="button"
+                className={btnClassGrid(selectedIndex === i)}
+                disabled={a.disabled}
+                title={a.title}
+                aria-current={selectedIndex === i ? "true" : undefined}
+                onClick={() => {
+                  setSelectedIndex(i);
+                  if (!a.disabled) a.onActivate();
+                }}
+              >
+                {a.label}
+              </button>
+            );
+          })}
+          {row.length % 2 === 1 ? (
+            <div className="min-h-[48px] sm:min-h-0" aria-hidden />
+          ) : null}
         </div>
       );
     }
@@ -671,6 +661,60 @@ export function HackAndSlashGame() {
 
     return null;
   };
+
+  if (game.phase === "cleared") {
+    return (
+      <div className="mx-auto flex min-h-[100dvh] max-w-lg flex-col justify-center gap-6 px-4 py-10 text-center">
+        <div>
+          <p className="text-lg font-semibold text-[var(--text)]">
+            おめでとうございます
+          </p>
+          <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
+            あなたはダンジョンを制覇した。
+          </p>
+          <p className="mt-5 text-sm text-[var(--text)]">
+            この周回の交戦回数：
+            <span className="font-medium text-[var(--accent)]">
+              {game.totalBattlesFought}
+            </span>
+          </p>
+        </div>
+        <div className="rounded border border-[var(--border)] bg-[var(--panel)] px-4 py-4 text-left text-sm text-[var(--text)]">
+          <p className="mb-2 text-xs text-[var(--muted)]">
+            クリア報酬（ゲーム内で使われた BGM データ）
+          </p>
+          <a
+            href={CLEAR_BGM_DRIVE}
+            className="break-all text-[var(--accent)] underline underline-offset-2"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Google ドライブで開き、ダウンロードして再生できます
+          </a>
+        </div>
+        <p className="text-xs leading-relaxed text-[var(--muted)]">
+          作者へのフィードバックもお待ちしています →{" "}
+          <a
+            href="https://x.com/tabisurushosai"
+            className="text-[var(--text)] underline decoration-[var(--border)] underline-offset-2"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            @tabisurushosai（X）
+          </a>
+        </p>
+        <button
+          type="button"
+          onClick={() =>
+            setGame((g) => (g.phase === "cleared" ? { ...g, phase: "explore" } : g))
+          }
+          className="touch-manipulation mx-auto rounded border border-[var(--border)] bg-[var(--panel)] px-4 py-3 text-sm text-[var(--text)] transition hover:border-[var(--accent)] hover:bg-[#24303d]"
+        >
+          底を歩き続ける
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto flex h-[100dvh] max-w-lg flex-col px-3 py-3">

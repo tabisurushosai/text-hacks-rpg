@@ -1,10 +1,15 @@
+/** 魔法の属性（弱点判定用。回復は無し） */
+export type SpellElement = "fire" | "ice" | "thunder";
+
 export type SpellId =
-  | "ember"
-  | "mend"
-  | "fireball"
-  | "frost"
-  | "spark"
-  | "thunder";
+  | "fire_jolt"
+  | "fire_blast"
+  | "ice_shard"
+  | "ice_wrath"
+  | "volt_needle"
+  | "volt_chain"
+  | "heal_soft"
+  | "heal_solid";
 
 export type ItemKind = "restoreHp" | "restoreMp" | "weapon";
 
@@ -64,6 +69,8 @@ export interface EnemyTemplate {
   atk: number;
   def: number;
   expReward: number;
+  /** この属性の魔法で追加ダメージ */
+  weakness?: SpellElement;
 }
 
 export interface EnemyInstance {
@@ -75,15 +82,17 @@ export interface EnemyInstance {
   def: number;
   expReward: number;
   isBoss?: boolean;
-  /** 残りターン。0 より大きいとき敵は行動できない */
+  weakness?: SpellElement;
+  /** 残りターン。0 より大きいとき敵は行動できない（凍結・痺れ等で共通） */
   frozenTurns?: number;
 }
 
 export type CombatMenu = "main" | "magic" | "item";
 
-export type GamePhase = "explore" | "combat";
+export type GamePhase = "explore" | "combat" | "cleared";
 
-export type ExploreMenu = "main" | "craft" | "use";
+/** main=行動選択 / items=調合と所持品の使用を同一画面 / magic=探索中の回復魔法のみ */
+export type ExploreMenu = "main" | "items" | "magic";
 
 export interface GameState {
   phase: GamePhase;
