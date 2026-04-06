@@ -796,6 +796,16 @@ export function HackAndSlashGame() {
                 </h3>
                 <p className="text-sm">
                   一部の敵は炎・氷・雷のどれかに弱く、該当魔法で追加ダメージが入ります。ログに「弱点を突いた」と出ます。
+                  層底の主にも、たまに弱点があることがあります。
+                </p>
+              </section>
+              <section>
+                <h3 className="mb-1 text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
+                  層底の主（ボス）
+                </h3>
+                <p className="text-sm">
+                  HP が減るとログに節目の一文が入ります。体力がさらに減ると攻撃が重くなるので、回復や MP
+                  の配分を読みながら戦うと学習しやすいです。
                 </p>
               </section>
               <section>

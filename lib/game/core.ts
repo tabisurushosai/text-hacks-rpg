@@ -1,5 +1,12 @@
-import { BOSS_USES_SAME_MULTIPLIER, scaleEnemyAtk, scaleEnemyHp } from "./balance";
 import {
+  BOSS_ENRAGE_DAMAGE_MUL,
+  BOSS_ENRAGE_HP_RATIO,
+  scaleBossFromTemplate,
+  scaleEnemyAtk,
+  scaleEnemyHp,
+} from "./balance";
+import {
+  BOSS_HP_MILESTONES,
   BOSS_TEMPLATE,
   CRAFT_COST,
   ITEM_HERB,
@@ -32,6 +39,7 @@ import type {
   InventoryItem,
   ItemKind,
   Player,
+  SpellElement,
   SpellId,
   Weapon,
 } from "./types";
@@ -171,6 +179,7 @@ export function initialGameState(): GameState {
     log: [
       "ダンジョンの入り口にいる。",
       "下へ続く気配がある。",
+      "古い地図では、最下層だけが「層底」とだけ書かれていた。",
       "迷ったら画面右上の「？」で用語と操作のメモを開ける。",
     ],
   };
@@ -201,22 +210,40 @@ function spawnEnemyForFloor(floor: number): EnemyInstance {
   };
 }
 
+const BOSS_WEAKNESS_POOL: SpellElement[] = ["fire", "ice", "thunder"];
+
 function spawnBoss(): EnemyInstance {
   const t = BOSS_TEMPLATE;
-  const maxHp = BOSS_USES_SAME_MULTIPLIER
-    ? scaleEnemyHp(t.maxHp)
-    : t.maxHp;
-  const atk = BOSS_USES_SAME_MULTIPLIER ? scaleEnemyAtk(t.atk) : t.atk;
+  const { maxHp, atk, def } = scaleBossFromTemplate(t.maxHp, t.atk, t.def);
   return {
     templateKey: t.key,
     name: t.name,
     hp: maxHp,
     maxHp,
     atk,
-    def: t.def,
+    def,
     expReward: t.expReward,
     isBoss: true,
+    weakness: Math.random() < 0.48 ? pick(BOSS_WEAKNESS_POOL) : undefined,
+    bossMilestonesLogged: 0,
   };
+}
+
+function applyBossHpMilestones(enemy: EnemyInstance, lines: string[]): EnemyInstance {
+  if (!enemy.isBoss || enemy.hp <= 0) return enemy;
+  let n = enemy.bossMilestonesLogged ?? 0;
+  const ratio = enemy.hp / enemy.maxHp;
+  let next = enemy;
+  for (let i = n; i < BOSS_HP_MILESTONES.length; i++) {
+    if (ratio <= BOSS_HP_MILESTONES[i]!.ratio) {
+      lines.push(BOSS_HP_MILESTONES[i]!.line);
+      n = i + 1;
+    }
+  }
+  if (n !== (enemy.bossMilestonesLogged ?? 0)) {
+    next = { ...enemy, bossMilestonesLogged: n };
+  }
+  return next;
 }
 
 function weaponPierceFlat(player: Player): number {
@@ -604,6 +631,16 @@ export function descendStairs(state: GameState): GameState {
 
   if (nf === 10 && !state.bossDefeated) {
     const boss = spawnBoss();
+    lines.push(
+      pick([
+        "視界の端で、燈が一つ消えた気がした。",
+        "「降り手」と呼ばれる者たちの屑が、床に混ざっている。",
+        "盟約の外——地図の余白にそう書かれていた。",
+      ]),
+    );
+    lines.push(
+      "粘つく圧が胸を押す。ここが「層底」だ。",
+    );
     lines.push(`${boss.name}がいる。`);
     return {
       ...state,
@@ -923,7 +960,16 @@ function enemyTurn(state: GameState, lines: string[]): GameState {
       log: [...state.log, ...lines],
     };
   }
-  const dmg = rollEnemyDamage(enemy.atk);
+  const hpRatio = enemy.hp / enemy.maxHp;
+  const enraged =
+    enemy.isBoss && hpRatio > 0 && hpRatio <= BOSS_ENRAGE_HP_RATIO;
+  let dmg = rollEnemyDamage(enemy.atk);
+  if (enraged) {
+    dmg = Math.max(1, Math.floor(dmg * BOSS_ENRAGE_DAMAGE_MUL));
+    if (Math.random() < 0.38) {
+      lines.push("主の一撃が重い。");
+    }
+  }
   const newHp = clamp(state.player.hp - dmg, 0, state.player.maxHp);
   lines.push(`${enemy.name}の攻撃。${dmg}のダメージ。`);
   if (newHp <= 0) {
@@ -991,7 +1037,13 @@ export function combatFight(state: GameState): GameState {
   if (enemy.hp <= 0) {
     return endCombatVictory({ ...s, player, enemy }, lines);
   }
-  const next: GameState = { ...s, player, enemy, log: [...s.log, ...lines] };
+  const bossed = enemy.isBoss ? applyBossHpMilestones(enemy, lines) : enemy;
+  const next: GameState = {
+    ...s,
+    player,
+    enemy: bossed,
+    log: [...s.log, ...lines],
+  };
   return enemyTurn(next, []);
 }
 
@@ -1138,10 +1190,11 @@ export function combatMagic(state: GameState, spell: SpellId): GameState {
     return endCombatVictory({ ...s, player, enemy }, lines);
   }
 
+  const bossed = enemy.isBoss ? applyBossHpMilestones(enemy, lines) : enemy;
   const next: GameState = {
     ...s,
     player,
-    enemy,
+    enemy: bossed,
     combatMenu: "main",
     log: [...s.log, ...lines],
   };

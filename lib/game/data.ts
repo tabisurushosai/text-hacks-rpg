@@ -68,11 +68,32 @@ export function templatesForFloor(floor: number): EnemyTemplate[] {
 export const BOSS_TEMPLATE: EnemyTemplate = {
   key: "boss_depth",
   name: "深層の主",
-  maxHp: 175,
-  atk: 17,
+  /** spawn 時に BOSS_CURVE でさらに補正 */
+  maxHp: 198,
+  atk: 18,
   def: 7,
   expReward: 100,
 };
+
+/** ボス HP 割合が初めて閾値を下回ったときに出す学習用ログ（上から順に検査） */
+export const BOSS_HP_MILESTONES: readonly { ratio: number; line: string }[] = [
+  {
+    ratio: 0.74,
+    line: "主の外殻にひびが走る。攻めは通っている。",
+  },
+  {
+    ratio: 0.5,
+    line: "「層底」の脈が脈打つ。主が距離を詰めてくる気がした。",
+  },
+  {
+    ratio: 0.3,
+    line: "燈の残り香が揺れる。主はあなたの詠唱の間を測っている。",
+  },
+  {
+    ratio: 0.14,
+    line: "主は余力を捨てた。以降の一撃は覚悟を要する。",
+  },
+];
 
 export const WEAPON_CATEGORY_LABEL: Record<WeaponCategory, string> = {
   sword: "剣",

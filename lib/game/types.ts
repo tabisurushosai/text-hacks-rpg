@@ -85,6 +85,8 @@ export interface EnemyInstance {
   weakness?: SpellElement;
   /** 残りターン。0 より大きいとき敵は行動できない（凍結・痺れ等で共通） */
   frozenTurns?: number;
+  /** ボス戦：HP 割合メッセージを何段まで出したか（学習用の節目ログ） */
+  bossMilestonesLogged?: number;
 }
 
 export type CombatMenu = "main" | "magic" | "item";
