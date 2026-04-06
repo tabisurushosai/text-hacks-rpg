@@ -13,3 +13,19 @@ body {
   background: var(--bg);
   color: var(--text);
 }
+
+@keyframes title-mist-drift {
+  0%,
+  100% {
+    opacity: 0.1;
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    opacity: 0.18;
+    transform: translateY(-0.5%) scale(1.01);
+  }
+}
+
+.title-screen-mist {
+  animation: title-mist-drift 14s ease-in-out infinite;
+}

@@ -40,7 +40,7 @@ import {
   openUseItemMenu,
   useItemExplore,
 } from "@/lib/game/core";
-import { BGM_DEFAULT_VOLUME, BGM_PATHS } from "@/lib/bgm";
+import { useGameBgm } from "@/components/GameBgmContext";
 import type { GameState, SpellId } from "@/lib/game/types";
 
 type ActionEntry = {
@@ -254,147 +254,20 @@ function formatStack(name: string, count: number): string {
   return count > 1 ? `${name}×${count}` : name;
 }
 
-function createLoopingBgm(): HTMLAudioElement {
-  const a = new Audio();
-  a.loop = true;
-  a.volume = BGM_DEFAULT_VOLUME;
-  return a;
-}
-
-/** 探索／戦闘で別トラック。片方だけ死んでいればもう片方にフォールバック */
-function pickBgmForPhase(
-  phase: GameState["phase"],
-  exploreDead: boolean,
-  combatDead: boolean,
-  explore: HTMLAudioElement,
-  combat: HTMLAudioElement,
-): HTMLAudioElement | null {
-  if (phase === "combat") {
-    if (!combatDead) return combat;
-    if (!exploreDead) return explore;
-    return null;
-  }
-  if (!exploreDead) return explore;
-  if (!combatDead) return combat;
-  return null;
-}
-
 export function HackAndSlashGame() {
   const [game, setGame] = useState<GameState>(() => initialGameState());
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [bgmPlaying, setBgmPlaying] = useState(false);
-  const [exploreBgmDead, setExploreBgmDead] = useState(false);
-  const [combatBgmDead, setCombatBgmDead] = useState(false);
+  const { bgmPlaying, bgmMissing, toggleBgm, syncPhase } = useGameBgm();
   const selectedIndexRef = useRef(0);
   const logEndRef = useRef<HTMLDivElement>(null);
   const logWrapRef = useRef<HTMLDivElement>(null);
-  const exploreBgmRef = useRef<HTMLAudioElement | null>(null);
-  const combatBgmRef = useRef<HTMLAudioElement | null>(null);
-  const bgmPlayingRef = useRef(false);
   const gameRef = useRef(game);
   gameRef.current = game;
   selectedIndexRef.current = selectedIndex;
-  bgmPlayingRef.current = bgmPlaying;
-
-  const bgmMissing = exploreBgmDead && combatBgmDead;
 
   useEffect(() => {
-    const explore = createLoopingBgm();
-    const combat = createLoopingBgm();
-    exploreBgmRef.current = explore;
-    combatBgmRef.current = combat;
-
-    function wire(
-      audio: HTMLAudioElement,
-      primary: string,
-      onFinalFail: () => void,
-    ) {
-      let step = 0;
-      audio.src = primary;
-      const onError = () => {
-        if (step === 0) {
-          step = 1;
-          audio.src = BGM_PATHS.theme;
-          audio.load();
-        } else {
-          onFinalFail();
-        }
-      };
-      audio.addEventListener("error", onError);
-      return () => audio.removeEventListener("error", onError);
-    }
-
-    const unsubs = [
-      wire(explore, BGM_PATHS.explore, () => setExploreBgmDead(true)),
-      wire(combat, BGM_PATHS.combat, () => setCombatBgmDead(true)),
-    ];
-
-    return () => {
-      for (const u of unsubs) u();
-      explore.pause();
-      combat.pause();
-      exploreBgmRef.current = null;
-      combatBgmRef.current = null;
-    };
-  }, []);
-
-  const toggleBgm = useCallback(async () => {
-    const explore = exploreBgmRef.current;
-    const combat = combatBgmRef.current;
-    if (!explore || !combat || bgmMissing) return;
-    if (bgmPlaying) {
-      explore.pause();
-      combat.pause();
-      setBgmPlaying(false);
-      return;
-    }
-    const active = pickBgmForPhase(
-      game.phase,
-      exploreBgmDead,
-      combatBgmDead,
-      explore,
-      combat,
-    );
-    if (!active) return;
-    explore.pause();
-    combat.pause();
-    active.currentTime = 0;
-    try {
-      await active.play();
-      setBgmPlaying(true);
-    } catch {
-      setBgmPlaying(false);
-    }
-  }, [
-    bgmMissing,
-    bgmPlaying,
-    combatBgmDead,
-    exploreBgmDead,
-    game.phase,
-  ]);
-
-  /** 戦闘↔探索でトラック切替（再生中のみ。ON にした直後の再生は toggle 内で行う） */
-  useEffect(() => {
-    if (!bgmPlayingRef.current) return;
-    const explore = exploreBgmRef.current;
-    const combat = combatBgmRef.current;
-    if (!explore || !combat) return;
-    const active = pickBgmForPhase(
-      game.phase,
-      exploreBgmDead,
-      combatBgmDead,
-      explore,
-      combat,
-    );
-    explore.pause();
-    combat.pause();
-    if (!active) {
-      setBgmPlaying(false);
-      return;
-    }
-    active.currentTime = 0;
-    void active.play().catch(() => setBgmPlaying(false));
-  }, [game.phase, exploreBgmDead, combatBgmDead]);
+    syncPhase(game.phase);
+  }, [game.phase, syncPhase]);
 
   const actions = useMemo(() => buildActions(game, setGame), [game, setGame]);
 
@@ -796,7 +669,7 @@ export function HackAndSlashGame() {
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <h1 className="text-base font-medium tracking-tight text-[var(--text)]">
-              テキストハクスラ
+              層底譚
             </h1>
           </div>
           <button
@@ -806,8 +679,8 @@ export function HackAndSlashGame() {
             className="touch-manipulation shrink-0 rounded border border-[var(--border)] bg-[var(--panel)] px-2 py-1 text-xs text-[var(--text)] transition hover:border-[var(--accent)] hover:bg-[#24303d] disabled:cursor-not-allowed disabled:opacity-40"
             title={
               bgmMissing
-                ? "public/bgm に explore.mp3・combat.mp3、または従来どおり theme.mp3 を置いてください"
-                : "探索は explore.mp3、戦闘は combat.mp3（無い場合は theme.mp3）。自動再生は不可のためボタンで開始"
+                ? "public/bgm に explore.mp3・combat.mp3、または theme.mp3 を置いてください"
+                : "探索は explore.mp3、戦闘は combat.mp3（片方だけのときはもう片方にフォールバック。theme で代用可）。タイトルは title.mp3"
             }
           >
             {bgmMissing ? "BGM未設定" : bgmPlaying ? "BGM停止" : "BGM"}

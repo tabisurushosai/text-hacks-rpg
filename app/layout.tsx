@@ -2,8 +2,9 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "テキストハクスラ",
-  description: "ブラウザで遊べるテキスト主体のハクスラRPG",
+  title: "層底譚 — Text Descent",
+  description:
+    "一行ずつ選び階を下りる、ブラウザで遊べるテキスト主体のハクスラRPG",
 };
 
 export const viewport: Viewport = {
