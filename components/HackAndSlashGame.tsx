@@ -279,9 +279,9 @@ export function HackAndSlashGame({
         </button>
       );
       return (
-        <div className="space-y-2" role="group" aria-label="調合と所持品">
+        <div className="space-y-2" role="group" aria-label="調合と所持品（武器・防具・消費）">
           <p className="text-xs text-[var(--muted)]">
-            調合と所持品の使用（装備・消費）
+            調合と所持品の使用（武器・防具・消費）
           </p>
           <div className={`grid grid-cols-2 gap-2 ${itemListScrollClass}`}>
             {mainEntries.map((a) => renderBtn(a, indexOf(a.key)))}

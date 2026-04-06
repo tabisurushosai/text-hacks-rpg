@@ -32,6 +32,7 @@ import {
   inventoryActionLabel,
   openExploreMagicMenu,
   openItemsMenu,
+  orderedInventoryForMenu,
   useItemExplore,
 } from "@/lib/game/core";
 import type { GameState, SpellId } from "@/lib/game/types";
@@ -93,7 +94,9 @@ export function buildGameActions(
           onActivate: () => setGame((g) => craftMediumMpPotion(g)),
         },
       ];
-      const useEntries: ActionEntry[] = p.inventory.map((it) => ({
+      const useEntries: ActionEntry[] = orderedInventoryForMenu(
+        p.inventory,
+      ).map((it) => ({
         key: `explore-use-${it.id}`,
         label: inventoryActionLabel(it),
         title: inventoryEquipTitle(it),
@@ -290,16 +293,18 @@ export function buildGameActions(
   }
 
   if (game.combatMenu === "item") {
-    const items: ActionEntry[] = p.inventory.map((it) => ({
-      key: `item-${it.id}`,
-      label: inventoryActionLabel(it),
-      title: inventoryEquipTitle(it),
-      onActivate: () =>
-        setGame((g) => {
-          const idx = g.player.inventory.findIndex((x) => x.id === it.id);
-          return combatItem(g, idx >= 0 ? idx : 0);
-        }),
-    }));
+    const items: ActionEntry[] = orderedInventoryForMenu(p.inventory).map(
+      (it) => ({
+        key: `item-${it.id}`,
+        label: inventoryActionLabel(it),
+        title: inventoryEquipTitle(it),
+        onActivate: () =>
+          setGame((g) => {
+            const idx = g.player.inventory.findIndex((x) => x.id === it.id);
+            return combatItem(g, idx >= 0 ? idx : 0);
+          }),
+      }),
+    );
     return [
       ...items,
       {

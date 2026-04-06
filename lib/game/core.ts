@@ -65,7 +65,11 @@ import type {
 
 export function inventoryActionLabel(it: InventoryItem): string {
   const head =
-    it.kind === "weapon" || it.kind === "armor" ? "装備" : "使う";
+    it.kind === "weapon"
+      ? "武器"
+      : it.kind === "armor"
+        ? "防具"
+        : "使う";
   return `${head}：${it.count > 1 ? `${it.name}×${it.count}` : it.name}`;
 }
 
@@ -117,6 +121,11 @@ function sortInventoryItems(inv: InventoryItem[]): InventoryItem[] {
     if (b.power !== a.power) return b.power - a.power;
     return a.name.localeCompare(b.name, "ja");
   });
+}
+
+/** UI 用：武器（攻撃力降順）→防具（防御降順）→消耗品 */
+export function orderedInventoryForMenu(inv: InventoryItem[]): InventoryItem[] {
+  return sortInventoryItems(inv);
 }
 
 function mergeInventory(inv: InventoryItem[], add: InventoryItem): InventoryItem[] {
