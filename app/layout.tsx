@@ -23,11 +23,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ja" className="h-full touch-manipulation">
+    <html lang="ja" className="h-full">
       <head>
         <link rel="preload" href="/bgm/title.mp3" as="audio" />
       </head>
-      <body className="min-h-full min-h-[100dvh] overflow-x-hidden antialiased">
+      <body className="app-root min-h-full min-h-[100dvh] overflow-x-hidden antialiased">
         {children}
       </body>
     </html>

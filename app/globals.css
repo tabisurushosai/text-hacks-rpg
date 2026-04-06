@@ -10,16 +10,39 @@
 }
 
 html {
-  touch-action: manipulation;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
   overflow-x: hidden;
 }
 
-body {
+/**
+ * LINE / iOS: touch-action は継承されない。子まで manipulation にしないと
+ * ログやテキスト上のダブルタップでページ拡大しやすい。
+ * 縦スクロールが必要な要素だけ .touch-scroll-y で pan-y を付与する。
+ */
+.app-root,
+.app-root * {
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.app-root .touch-scroll-y {
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+.app-root input,
+.app-root textarea {
+  touch-action: auto;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+body.app-root {
   background: var(--bg);
   color: var(--text);
-  touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   overflow-x: hidden;
 }

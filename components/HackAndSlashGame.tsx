@@ -434,7 +434,7 @@ export function HackAndSlashGame() {
 
   /** アイテム列が多いとき用（メニュー内スクロール） */
   const itemListScrollClass =
-    "max-h-[min(42vh,15rem)] overflow-y-auto overscroll-y-contain pr-0.5";
+    "touch-scroll-y max-h-[min(42vh,15rem)] overflow-y-auto overscroll-y-contain pr-0.5";
 
   /** サブメニューもメインと同じ最小高さ */
   const btnClass = (selected: boolean) => btnClassGrid(selected);
@@ -745,7 +745,7 @@ export function HackAndSlashGame() {
           onClick={() => setHelpOpen(false)}
         >
           <div
-            className="max-h-[min(88dvh,32rem)] w-full max-w-md overflow-y-auto overscroll-contain rounded-lg border border-[var(--border)] bg-[var(--panel)] p-4 text-left text-sm text-[var(--text)] shadow-xl"
+            className="touch-scroll-y max-h-[min(88dvh,32rem)] w-full max-w-md overflow-y-auto overscroll-contain rounded-lg border border-[var(--border)] bg-[var(--panel)] p-4 text-left text-sm text-[var(--text)] shadow-xl"
             role="dialog"
             aria-modal="true"
             aria-labelledby="help-title"
@@ -829,7 +829,8 @@ export function HackAndSlashGame() {
                   BGM
                 </h3>
                 <p className="text-sm">
-                  「BGM」で再生のオンオフ、「BGMリセット」でプレイヤーを作り直します。別アプリに切り替えて戻ったあと音が止まった場合は、もう一度「BGM」を押すかリセットを試してください。
+                  「BGM」で再生のオンオフ、「BGMリセット」でプレイヤーを作り直します。タブ復帰や数秒ごとのチェックで、ON
+                  のとき無音になっていれば自動で再開を試みます。直らないときだけリセットを試してください。
                 </p>
               </section>
             </div>
@@ -887,7 +888,7 @@ export function HackAndSlashGame() {
 
       <section
         ref={logWrapRef}
-        className="min-h-0 max-sm:min-h-[min(46dvh,22rem)] flex-1 touch-manipulation overflow-y-auto rounded border border-[var(--border)] bg-[var(--panel)] px-3 py-2"
+        className="touch-scroll-y min-h-0 max-sm:min-h-[min(46dvh,22rem)] flex-1 overflow-y-auto rounded border border-[var(--border)] bg-[var(--panel)] px-3 py-2"
         aria-label="探索・戦闘ログ"
       >
         <ul className="space-y-1.5 text-sm leading-relaxed text-[var(--text)]">
@@ -911,7 +912,7 @@ export function HackAndSlashGame() {
           className={
             compactExploreOrCombatMain
               ? "h-[104px] shrink-0 overflow-hidden"
-              : "max-h-[min(50dvh,20rem)] min-h-[104px] shrink-0 overflow-y-auto overscroll-y-contain"
+              : "touch-scroll-y max-h-[min(50dvh,20rem)] min-h-[104px] shrink-0 overflow-y-auto overscroll-y-contain"
           }
         >
           {renderButtons()}

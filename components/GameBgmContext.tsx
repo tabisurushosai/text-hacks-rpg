@@ -135,10 +135,18 @@ export function GameBgmProvider({
   const bgmPlayingRef = useRef(false);
   const gameBgmPlayIdRef = useRef(0);
   const currentPhaseRef = useRef<GamePhase>("explore");
+  const exploreBgmDeadRef = useRef(false);
+  const combatBgmDeadRef = useRef(false);
+  const bgmMissingRef = useRef(false);
+  const tryResumeRef = useRef<() => void>(() => {});
+  const lastResumeAtRef = useRef(0);
   bgmPlayingRef.current = bgmPlaying;
   currentPhaseRef.current = currentPhase;
+  exploreBgmDeadRef.current = exploreBgmDead;
+  combatBgmDeadRef.current = combatBgmDead;
 
   const bgmMissing = exploreBgmDead && combatBgmDead;
+  bgmMissingRef.current = bgmMissing;
 
   const disposeGameBgm = useCallback(() => {
     gameBgmPlayIdRef.current += 1;
@@ -165,12 +173,51 @@ export function GameBgmProvider({
     );
     explore.load();
     combat.load();
+
+    const onGlitch = () => {
+      queueMicrotask(() => tryResumeRef.current());
+    };
+    explore.addEventListener("stalled", onGlitch);
+    combat.addEventListener("stalled", onGlitch);
   }, []);
 
   const ensureGameBgmWired = useCallback(() => {
     if (exploreBgmRef.current && combatBgmRef.current) return;
     wireGameBgmPair();
   }, [wireGameBgmPair]);
+
+  const tryResumeGameBgm = useCallback(() => {
+    if (!bgmPlayingRef.current || bgmMissingRef.current) return;
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") {
+      return;
+    }
+
+    ensureGameBgmWired();
+    const explore = exploreBgmRef.current;
+    const combat = combatBgmRef.current;
+    if (!explore || !combat) return;
+    titleBgmRef.current?.pause();
+    const active = pickBgmForPhase(
+      currentPhaseRef.current,
+      exploreBgmDeadRef.current,
+      combatBgmDeadRef.current,
+      explore,
+      combat,
+    );
+    if (!active) return;
+    if (active !== explore) explore.pause();
+    if (active !== combat) combat.pause();
+    if (!active.paused) return;
+
+    const now = Date.now();
+    if (now - lastResumeAtRef.current < 450) return;
+    lastResumeAtRef.current = now;
+    void active.play().catch(() => {});
+  }, [ensureGameBgmWired]);
+
+  useEffect(() => {
+    tryResumeRef.current = tryResumeGameBgm;
+  }, [tryResumeGameBgm]);
 
   useEffect(() => {
     const title = createLoopingBgm({ preload: "auto" });
@@ -386,40 +433,36 @@ export function GameBgmProvider({
     playGameTrack,
   ]);
 
-  /** タブ復帰・バックグラウンド復帰で iOS 等が pause したあと、ON のままなら再開 */
+  /** タブ復帰・フォーカス・タップ後に無音になっていたら再開 */
   useEffect(() => {
-    const resumeIfNeeded = () => {
+    const onVisOrShow = () => {
       if (document.visibilityState !== "visible") return;
-      if (!bgmPlayingRef.current || bgmMissing) return;
-      ensureGameBgmWired();
-      const explore = exploreBgmRef.current;
-      const combat = combatBgmRef.current;
-      const title = titleBgmRef.current;
-      if (!explore || !combat) return;
-      title?.pause();
-      const active = pickBgmForPhase(
-        currentPhaseRef.current,
-        exploreBgmDead,
-        combatBgmDead,
-        explore,
-        combat,
-      );
-      if (!active || !active.paused) return;
-      void active.play().catch(() => {});
+      tryResumeGameBgm();
     };
 
-    document.addEventListener("visibilitychange", resumeIfNeeded);
-    window.addEventListener("pageshow", resumeIfNeeded);
+    document.addEventListener("visibilitychange", onVisOrShow);
+    window.addEventListener("pageshow", onVisOrShow);
+    window.addEventListener("focus", onVisOrShow);
     return () => {
-      document.removeEventListener("visibilitychange", resumeIfNeeded);
-      window.removeEventListener("pageshow", resumeIfNeeded);
+      document.removeEventListener("visibilitychange", onVisOrShow);
+      window.removeEventListener("pageshow", onVisOrShow);
+      window.removeEventListener("focus", onVisOrShow);
     };
-  }, [
-    bgmMissing,
-    ensureGameBgmWired,
-    exploreBgmDead,
-    combatBgmDead,
-  ]);
+  }, [tryResumeGameBgm]);
+
+  /** iOS / LINE: バックグラウンドや省電力で止まりがちなので定期チェック */
+  useEffect(() => {
+    const id = window.setInterval(() => tryResumeGameBgm(), 2200);
+    return () => window.clearInterval(id);
+  }, [tryResumeGameBgm]);
+
+  /** ユーザー操作直後に Audio を再アンロック（無音復帰） */
+  useEffect(() => {
+    const onPointer = () => tryResumeGameBgm();
+    document.addEventListener("pointerdown", onPointer, { capture: true });
+    return () =>
+      document.removeEventListener("pointerdown", onPointer, { capture: true });
+  }, [tryResumeGameBgm]);
 
   const value = useMemo(
     () => ({
