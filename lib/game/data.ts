@@ -1,5 +1,8 @@
 import { BALANCE_TUNING } from "./gameConfig";
 import type {
+  Armor,
+  ArmorCategory,
+  ArmorSpecial,
   EnemyTemplate,
   InventoryItem,
   JobId,
@@ -124,6 +127,7 @@ export const WEAPON_SPECIAL_HINT: Record<WeaponSpecial, string> = {
 };
 
 export const WEAPON_ATK_MAX = BALANCE_TUNING.weaponAtkMax;
+export const ARMOR_DEF_MAX = BALANCE_TUNING.armorDefMax;
 
 export const WEAPON_BASES: { name: string; atk: number; category: WeaponCategory }[] =
   [
@@ -181,6 +185,86 @@ export const WEAPON_SPECIAL_POOL: { id: WeaponSpecial; weight: number }[] = [
   { id: "keen", weight: 12 },
   { id: "piercing", weight: 12 },
   { id: "twin", weight: 12 },
+];
+
+export const ARMOR_CATEGORY_LABEL: Record<ArmorCategory, string> = {
+  leather: "革鎧",
+  mail: "鎖帷",
+  plate: "板金",
+  robe: "法衣",
+  cloak: "外套",
+  buckler: "小盾",
+};
+
+export const ARMOR_SPECIAL_LABEL: Record<ArmorSpecial, string> = {
+  none: "",
+  thorns: "棘甲",
+  ward: "結界",
+  aegis: "堅壳",
+  regen: "滴血",
+};
+
+export const ARMOR_SPECIAL_HINT: Record<ArmorSpecial, string> = {
+  none: "",
+  thorns: "（被弾後に敵に反撃ダメージ）",
+  ward: "（被ダメをさらに1軽減）",
+  aegis: "（低確率で被ダメを大きく抑える）",
+  regen: "（被弾後にHPが少し回復）",
+};
+
+export const ARMOR_BASES: { name: string; def: number; category: ArmorCategory }[] =
+  [
+    { name: "革胸当て", def: 2, category: "leather" },
+    { name: "旅人の外套", def: 2, category: "cloak" },
+    { name: "硬革鎧", def: 3, category: "leather" },
+    { name: "狩人の外套", def: 3, category: "cloak" },
+    { name: "厚革鎧", def: 4, category: "leather" },
+    { name: "旅用ローブ", def: 2, category: "robe" },
+    { name: "術師の法衣", def: 3, category: "robe" },
+    { name: "星紋の法衣", def: 4, category: "robe" },
+    { name: "深層ローブ", def: 5, category: "robe" },
+    { name: "底知れぬ法衣", def: 6, category: "robe" },
+    { name: "鎖帷子", def: 3, category: "mail" },
+    { name: "環鎖", def: 4, category: "mail" },
+    { name: "二重鎖", def: 5, category: "mail" },
+    { name: "層底の鎖帷", def: 6, category: "mail" },
+    { name: "鉄環鎧", def: 7, category: "mail" },
+    { name: "板金胸当て", def: 4, category: "plate" },
+    { name: "重板鎧", def: 5, category: "plate" },
+    { name: "塔守の板金", def: 6, category: "plate" },
+    { name: "鋼板鎧", def: 7, category: "plate" },
+    { name: "層断ちの鎧", def: 8, category: "plate" },
+    { name: "木盾", def: 1, category: "buckler" },
+    { name: "鉄縁盾", def: 2, category: "buckler" },
+    { name: "釘付き盾", def: 3, category: "buckler" },
+    { name: "塔盾", def: 4, category: "buckler" },
+    { name: "層底の小盾", def: 5, category: "buckler" },
+  ];
+
+/** 武器の接頭辞と同じ差分帯を防御に流用 */
+export const ARMOR_PREFIXES: { label: string; def: number }[] = [
+  { label: "錆びた", def: -2 },
+  { label: "欠けた", def: -2 },
+  { label: "古い", def: -1 },
+  { label: "呪われた", def: -1 },
+  { label: "普通の", def: 0 },
+  { label: "褪せた", def: 0 },
+  { label: "頑丈な", def: 2 },
+  { label: "嗡鳴る", def: 3 },
+  { label: "祝福された", def: 3 },
+  { label: "盟約の", def: 4 },
+  { label: "洗練された", def: 4 },
+  { label: "層底の", def: 5 },
+  { label: "星屑の", def: 6 },
+  { label: "喰らいし", def: 7 },
+];
+
+export const ARMOR_SPECIAL_POOL: { id: ArmorSpecial; weight: number }[] = [
+  { id: "none", weight: 52 },
+  { id: "thorns", weight: 12 },
+  { id: "ward", weight: 12 },
+  { id: "aegis", weight: 12 },
+  { id: "regen", weight: 12 },
 ];
 
 export const SPELLS: Record<
@@ -405,6 +489,17 @@ export function rollWeaponSpecial(): WeaponSpecial {
   return "none";
 }
 
+export function rollArmorSpecial(): ArmorSpecial {
+  const pool = ARMOR_SPECIAL_POOL;
+  const total = pool.reduce((s, x) => s + x.weight, 0);
+  let r = Math.random() * total;
+  for (const e of pool) {
+    r -= e.weight;
+    if (r <= 0) return e.id;
+  }
+  return "none";
+}
+
 export function formatWeaponEquipLine(w: Weapon): string {
   const cat = WEAPON_CATEGORY_LABEL[w.category];
   const sp =
@@ -421,4 +516,27 @@ export function inventoryWeaponTitle(it: InventoryItem): string | undefined {
   const tag = sp !== "none" ? ` ${WEAPON_SPECIAL_LABEL[sp]}` : "";
   const hint = sp !== "none" ? WEAPON_SPECIAL_HINT[sp] : "";
   return `攻撃+${it.power} ${cat}${tag}${hint}`;
+}
+
+export function formatArmorEquipLine(a: Armor): string {
+  const cat = ARMOR_CATEGORY_LABEL[a.category];
+  const sp =
+    a.special !== "none" ? `・${ARMOR_SPECIAL_LABEL[a.special]}` : "";
+  const hint =
+    a.special !== "none" ? ARMOR_SPECIAL_HINT[a.special] : "";
+  return `${a.fullName}（+${a.def} ${cat}${sp}${hint}）`;
+}
+
+export function inventoryArmorTitle(it: InventoryItem): string | undefined {
+  if (it.kind !== "armor") return undefined;
+  const cat = ARMOR_CATEGORY_LABEL[it.armorCategory ?? "leather"];
+  const sp = it.armorSpecial ?? "none";
+  const tag = sp !== "none" ? ` ${ARMOR_SPECIAL_LABEL[sp]}` : "";
+  const hint = sp !== "none" ? ARMOR_SPECIAL_HINT[sp] : "";
+  return `防御+${it.power} ${cat}${tag}${hint}`;
+}
+
+/** 所持品ツールチップ（武器・防具のみ） */
+export function inventoryEquipTitle(it: InventoryItem): string | undefined {
+  return inventoryWeaponTitle(it) ?? inventoryArmorTitle(it);
 }

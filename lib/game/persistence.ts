@@ -11,7 +11,7 @@ import {
   mergeMetaAfterDeath,
   mergeMetaRunStarted,
 } from "./metaRecords";
-import type { CombatMenu, GameState, JobId } from "./types";
+import type { Armor, CombatMenu, GameState, JobId, Player } from "./types";
 
 type SaveEnvelope = {
   v: typeof SAVE_PAYLOAD_VERSION | typeof SAVE_LEGACY_VERSION;
@@ -47,6 +47,7 @@ function normalizeCombatMenu(raw: unknown): CombatMenu {
 }
 
 function normalizeLoadedState(s: GameState): GameState {
+  const p = s.player as Player & { armor?: Armor | null };
   return {
     ...s,
     pendingClientEvent: null,
@@ -56,6 +57,10 @@ function normalizeLoadedState(s: GameState): GameState {
     combatMenu: normalizeCombatMenu(s.combatMenu),
     stairsVisible: Boolean(s.stairsVisible),
     bossDefeated: Boolean(s.bossDefeated),
+    player: {
+      ...s.player,
+      armor: p.armor ?? null,
+    },
   };
 }
 

@@ -19,6 +19,10 @@ import {
   POTION_MEDIUM_MP_POWER,
   EXPLORE_CASTABLE_SPELLS,
   JOB_STARTING_SPELLS,
+  ARMOR_BASES,
+  ARMOR_DEF_MAX,
+  ARMOR_PREFIXES,
+  ARMOR_SPECIAL_LABEL,
   spellBooksLootPool,
   SPELLS,
   WEAPON_ATK_MAX,
@@ -26,6 +30,7 @@ import {
   WEAPON_PREFIXES,
   nextItemId,
   resetItemIdCounter,
+  rollArmorSpecial,
   rollWeaponSpecial,
   templatesForFloor,
   WEAPON_SPECIAL_LABEL,
@@ -34,6 +39,7 @@ import {
   computeEnemyDamage,
   computePhysicalDamage,
   expToNextLevelRequirement,
+  mitigateDamageWithArmor,
   processLevelUpAccumulation,
 } from "./combatMath";
 import { BALANCE_TUNING } from "./gameConfig";
@@ -45,6 +51,7 @@ import {
 import { LORE_INTRO_DESCENDER } from "./lore";
 import { applyExploreSelfSpell, runCombatSpell } from "./spellEffects";
 import type {
+  Armor,
   EnemyInstance,
   GameState,
   InventoryItem,
@@ -57,7 +64,8 @@ import type {
 } from "./types";
 
 export function inventoryActionLabel(it: InventoryItem): string {
-  const head = it.kind === "weapon" ? "装備" : "使う";
+  const head =
+    it.kind === "weapon" || it.kind === "armor" ? "装備" : "使う";
   return `${head}：${it.count > 1 ? `${it.name}×${it.count}` : it.name}`;
 }
 
@@ -84,16 +92,23 @@ function inventoryItemsMatch(a: InventoryItem, b: InventoryItem): boolean {
       (a.weaponSpecial ?? "none") === (b.weaponSpecial ?? "none")
     );
   }
+  if (a.kind === "armor") {
+    return (
+      (a.armorCategory ?? "leather") === (b.armorCategory ?? "leather") &&
+      (a.armorSpecial ?? "none") === (b.armorSpecial ?? "none")
+    );
+  }
   return true;
 }
 
-/** 回復品は power（回復量）の大きい順、武器は攻撃力の大きい順、そのあと名前 */
+/** 回復品は power 順、防具・武器は装備値の大きい順（武器を上に） */
 function sortInventoryItems(inv: InventoryItem[]): InventoryItem[] {
   return [...inv].sort((a, b) => {
-    const tier = (it: InventoryItem) => (it.kind === "weapon" ? 1 : 0);
+    const tier = (it: InventoryItem) =>
+      it.kind === "weapon" ? 2 : it.kind === "armor" ? 1 : 0;
     const ta = tier(a);
     const tb = tier(b);
-    if (ta !== tb) return ta - tb;
+    if (ta !== tb) return tb - ta;
     if (ta === 0) {
       if (b.power !== a.power) return b.power - a.power;
       if (a.kind !== b.kind) return a.kind === "restoreHp" ? -1 : 1;
@@ -159,6 +174,7 @@ export function initialPlayer(job: JobId): Player {
     exp: 0,
     baseAtk: 3,
     weapon: null,
+    armor: null,
     knownSpells: [...JOB_STARTING_SPELLS[job]],
     inventory: [
       {
@@ -210,7 +226,7 @@ function deathHintAfterCombat(state: GameState): string | null {
   if (pl.mp <= Math.max(2, Math.floor(pl.maxMp * 0.18))) {
     return "【手がかり】MPが乏しかった。探索での回復魔法や調合で、戦闘前の余白を増やせる。";
   }
-  return "【手がかり】武器の攻撃力や特殊効果（吸命・心眼など）を見直し、落とし物を見逃していないか確かめよう。";
+  return "【手がかり】武器の攻撃力・防具の防御や特殊効果を見直し、落とし物を見逃していないか確かめよう。";
 }
 
 function resetToEntrance(
@@ -340,6 +356,33 @@ function generateWeapon(): Weapon {
   };
 }
 
+function generateArmor(): Armor {
+  for (let n = 0; n < 96; n++) {
+    const base = pick(ARMOR_BASES);
+    const pre = pick(ARMOR_PREFIXES);
+    const def = base.def + pre.def;
+    if (def >= 1 && def <= ARMOR_DEF_MAX) {
+      const special = rollArmorSpecial();
+      let fullName = `${pre.label}${base.name}`;
+      if (special !== "none") {
+        fullName += `・${ARMOR_SPECIAL_LABEL[special]}`;
+      }
+      return {
+        fullName,
+        def,
+        category: base.category,
+        special,
+      };
+    }
+  }
+  return {
+    fullName: "旅人の革当て",
+    def: 1,
+    category: "leather",
+    special: "none",
+  };
+}
+
 function addLootItem(
   player: Player,
   item: Omit<InventoryItem, "id" | "count"> & { count?: number },
@@ -354,6 +397,10 @@ function addLootItem(
   if (item.kind === "weapon") {
     stack.weaponCategory = item.weaponCategory;
     stack.weaponSpecial = item.weaponSpecial;
+  }
+  if (item.kind === "armor") {
+    stack.armorCategory = item.armorCategory;
+    stack.armorSpecial = item.armorSpecial;
   }
   return {
     ...player,
@@ -380,6 +427,24 @@ function rollDrops(player: Player, lines: string[], floor: number): Player {
       weaponSpecial: w.special,
     });
     lines.push(`${w.fullName}を拾った。所持品に入れた。`);
+  }
+
+  const acfg = BALANCE_TUNING.combatLoot.armor;
+  const armorChance = Math.min(
+    acfg.cap,
+    acfg.baseChance + Math.max(0, floor - 1) * acfg.perFloor,
+  );
+  if (Math.random() < armorChance) {
+    const a = generateArmor();
+    p = addLootItem(p, {
+      name: a.fullName,
+      kind: "armor",
+      power: a.def,
+      count: 1,
+      armorCategory: a.category,
+      armorSpecial: a.special,
+    });
+    lines.push(`${a.fullName}を拾った。所持品に入れた。`);
   }
 
   const bcfg = BALANCE_TUNING.combatLoot.spellBook;
@@ -453,6 +518,17 @@ function rollBossLoot(player: Player, lines: string[]): Player {
     weaponSpecial: w.special,
   });
   lines.push(`${w.fullName}も手元に転がっていた。`);
+
+  const a = generateArmor();
+  p = addLootItem(p, {
+    name: a.fullName,
+    kind: "armor",
+    power: a.def,
+    count: 1,
+    armorCategory: a.category,
+    armorSpecial: a.special,
+  });
+  lines.push(`${a.fullName}も、主の影に引き寄せられていた。`);
 
   return p;
 }
@@ -584,7 +660,10 @@ export function explore(state: GameState): GameState {
   }
 
   if (r < 0.49) {
-    const dmg = 2 + Math.floor(Math.random() * 3);
+    const raw = 2 + Math.floor(Math.random() * 3);
+    const soft =
+      raw - Math.floor((state.player.armor?.def ?? 0) / 3);
+    const dmg = Math.max(1, soft);
     const nh = clamp(state.player.hp - dmg, 0, state.player.maxHp);
     lines.push(`足を滑らせた。${dmg}のダメージ。`);
     if (nh <= 0) {
@@ -775,23 +854,26 @@ export function exploreMagic(state: GameState, spell: SpellId): GameState {
   };
 }
 
-/** 所持している武器アイテムをすべて捨てる（装備中はインベントリに無いので残る） */
+/** 所持している武器・防具アイテムをすべて捨てる（装備中はインベントリに無いので残る） */
 export function discardInventoryWeapons(state: GameState): GameState {
   if (state.phase !== "explore") return state;
   const inv = state.player.inventory;
-  const weapons = inv.filter((x) => x.kind === "weapon");
-  const n = weapons.reduce((s, w) => s + w.count, 0);
+  const n = inv
+    .filter((x) => x.kind === "weapon" || x.kind === "armor")
+    .reduce((s, w) => s + w.count, 0);
   if (n === 0) {
     return {
       ...state,
-      log: [...state.log, "捨てる武器がない。"],
+      log: [...state.log, "捨てる武器や防具がない。"],
     };
   }
-  const nextInv = sortInventoryItems(inv.filter((x) => x.kind !== "weapon"));
+  const nextInv = sortInventoryItems(
+    inv.filter((x) => x.kind !== "weapon" && x.kind !== "armor"),
+  );
   return {
     ...state,
     player: { ...state.player, inventory: nextInv },
-    log: [...state.log, `所持の武器を${n}件手放した。`],
+    log: [...state.log, `所持の武器・防具を${n}件手放した。`],
   };
 }
 
@@ -1007,6 +1089,11 @@ function enemyTurn(state: GameState, lines: string[]): GameState {
       lines.push("主の一撃が重い。");
     }
   }
+  dmg = mitigateDamageWithArmor(dmg, state.player.armor);
+  if (state.player.armor?.special === "aegis" && Math.random() < 0.12) {
+    dmg = Math.max(1, Math.floor(dmg * 0.5));
+    lines.push("堅壳が一瞬だけ光り、衝撃を散らした。");
+  }
   const newHp = clamp(state.player.hp - dmg, 0, state.player.maxHp);
   lines.push(`${enemy.name}の攻撃。${dmg}のダメージ。`);
   if (newHp <= 0) {
@@ -1017,9 +1104,49 @@ function enemyTurn(state: GameState, lines: string[]): GameState {
       deathHintAfterCombat(state),
     );
   }
+
+  let playerNext = { ...state.player, hp: newHp };
+  let enemyNext: EnemyInstance = { ...enemy };
+
+  if (dmg > 0 && playerNext.armor?.special === "regen") {
+    const h = 1 + Math.floor(Math.random() * 2);
+    const nh = clamp(playerNext.hp + h, 0, playerNext.maxHp);
+    if (nh > playerNext.hp) {
+      lines.push(`滴血が傷を塞いだ。HPが${nh - playerNext.hp}回復した。`);
+      playerNext = { ...playerNext, hp: nh };
+    }
+  }
+
+  if (
+    dmg > 0 &&
+    playerNext.armor?.special === "thorns" &&
+    enemyNext.hp > 0
+  ) {
+    const td = Math.max(
+      1,
+      Math.floor((playerNext.armor?.def ?? 0) * 0.2) +
+        (Math.random() < 0.35 ? 1 : 0),
+    );
+    enemyNext = {
+      ...enemyNext,
+      hp: clamp(enemyNext.hp - td, 0, enemyNext.maxHp),
+    };
+    lines.push(`棘甲が牙を返し、${td}のダメージ。`);
+    if (enemyNext.hp <= 0) {
+      return endCombatVictory(
+        { ...state, player: playerNext, enemy: enemyNext },
+        lines,
+      );
+    }
+    enemyNext = enemyNext.isBoss
+      ? applyBossHpMilestones(enemyNext, lines)
+      : enemyNext;
+  }
+
   return {
     ...state,
-    player: { ...state.player, hp: newHp },
+    player: playerNext,
+    enemy: enemyNext,
     log: [...state.log, ...lines],
   };
 }
@@ -1184,6 +1311,40 @@ function equipWeaponFromInventoryPlayer(
   return { player: p, line: parts.join("") };
 }
 
+function equipArmorFromInventoryPlayer(
+  player: Player,
+  itemIndex: number,
+): { player: Player; line: string } | null {
+  const item = player.inventory[itemIndex];
+  if (!item || item.kind !== "armor") return null;
+
+  const inv = removeOneItem(player.inventory, itemIndex);
+  const old = player.armor;
+  let p: Player = {
+    ...player,
+    inventory: inv,
+    armor: {
+      fullName: item.name,
+      def: item.power,
+      category: item.armorCategory ?? "leather",
+      special: item.armorSpecial ?? "none",
+    },
+  };
+  const parts: string[] = [`${item.name}を装備した。`];
+  if (old) {
+    p = addLootItem(p, {
+      name: old.fullName,
+      kind: "armor",
+      power: old.def,
+      count: 1,
+      armorCategory: old.category,
+      armorSpecial: old.special,
+    });
+    parts.push(`外した${old.fullName}は所持品に入れた。`);
+  }
+  return { player: p, line: parts.join("") };
+}
+
 export function useItemExplore(state: GameState, itemIndex: number): GameState {
   if (state.phase !== "explore") return state;
   const item = state.player.inventory[itemIndex];
@@ -1191,6 +1352,12 @@ export function useItemExplore(state: GameState, itemIndex: number): GameState {
 
   if (item.kind === "weapon") {
     const r = equipWeaponFromInventoryPlayer(state.player, itemIndex);
+    if (!r) return state;
+    return { ...state, player: r.player, log: [...state.log, r.line] };
+  }
+
+  if (item.kind === "armor") {
+    const r = equipArmorFromInventoryPlayer(state.player, itemIndex);
     if (!r) return state;
     return { ...state, player: r.player, log: [...state.log, r.line] };
   }
@@ -1231,6 +1398,18 @@ export function combatItem(state: GameState, itemIndex: number): GameState {
 
   if (item.kind === "weapon") {
     const r = equipWeaponFromInventoryPlayer(s.player, itemIndex);
+    if (!r) return state;
+    const next: GameState = {
+      ...s,
+      player: r.player,
+      combatMenu: "main",
+      log: [...s.log, r.line],
+    };
+    return enemyTurn(next, []);
+  }
+
+  if (item.kind === "armor") {
+    const r = equipArmorFromInventoryPlayer(s.player, itemIndex);
     if (!r) return state;
     const next: GameState = {
       ...s,

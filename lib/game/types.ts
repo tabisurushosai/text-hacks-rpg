@@ -21,9 +21,9 @@ export type SpellId =
   | "far_mud"
   | "far_rest";
 
-export type ItemKind = "restoreHp" | "restoreMp" | "weapon";
+export type ItemKind = "restoreHp" | "restoreMp" | "weapon" | "armor";
 
-/** 武器の系統（表示・生成用。防具は無し） */
+/** 武器の系統（表示・生成用） */
 export type WeaponCategory =
   | "sword"
   | "axe"
@@ -47,6 +47,34 @@ export interface Weapon {
   special: WeaponSpecial;
 }
 
+/** 防具の系統（表示・生成用） */
+export type ArmorCategory =
+  | "leather"
+  | "mail"
+  | "plate"
+  | "robe"
+  | "cloak"
+  | "buckler";
+
+/** 防具の特殊効果（被弾時・軽減で発動） */
+export type ArmorSpecial =
+  | "none"
+  /** 被ダメ後に敵に小ダメージ */
+  | "thorns"
+  /** 被ダメをさらに 1 軽減 */
+  | "ward"
+  /** 低確率で被ダメを大きく抑える */
+  | "aegis"
+  /** 被ダメ後に HP が少し回復 */
+  | "regen";
+
+export interface Armor {
+  fullName: string;
+  def: number;
+  category: ArmorCategory;
+  special: ArmorSpecial;
+}
+
 export interface InventoryItem {
   id: string;
   name: string;
@@ -57,6 +85,9 @@ export interface InventoryItem {
   /** kind が weapon のときのみ */
   weaponCategory?: WeaponCategory;
   weaponSpecial?: WeaponSpecial;
+  /** kind が armor のときのみ */
+  armorCategory?: ArmorCategory;
+  armorSpecial?: ArmorSpecial;
 }
 
 export interface Player {
@@ -68,6 +99,7 @@ export interface Player {
   exp: number;
   baseAtk: number;
   weapon: Weapon | null;
+  armor: Armor | null;
   knownSpells: SpellId[];
   inventory: InventoryItem[];
 }

@@ -7,6 +7,8 @@
 export const BALANCE_TUNING = {
   /** 生成武器の攻撃力上限（data の生成ループでも使用） */
   weaponAtkMax: 15,
+  /** 生成防具の防御力上限（武器と同帯） */
+  armorDefMax: 15,
 
   /** 戦闘勝利時のドロップ（floor は 1 始まり） */
   combatLoot: {
@@ -16,6 +18,11 @@ export const BALANCE_TUNING = {
       /** (floor - 1) に掛ける係数 */
       perFloor: 0.0167,
       cap: 0.16,
+    },
+    armor: {
+      baseChance: 0.009,
+      perFloor: 0.015,
+      cap: 0.14,
     },
     spellBook: {
       baseMin: 0.32,

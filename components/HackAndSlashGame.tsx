@@ -5,7 +5,11 @@ import { CombatHud } from "@/components/CombatHud";
 import { useGameBgm } from "@/components/GameBgmContext";
 import { JOB_META, JOB_ORDER, RUN_TARGET_MINUTES } from "@/lib/game/balance";
 import { expUntilLevelUp, initialGameState } from "@/lib/game/core";
-import { formatWeaponEquipLine, SPELLS } from "@/lib/game/data";
+import {
+  formatArmorEquipLine,
+  formatWeaponEquipLine,
+  SPELLS,
+} from "@/lib/game/data";
 import { logLinePrefix, logLineTone, logToneClass } from "@/lib/game/logLineTone";
 import {
   persistMetaAfterBossClear,
@@ -640,7 +644,7 @@ export function HackAndSlashGame({
                   <li>スマホ：ボタンをタップ（選択と実行が同時になります）</li>
                   <li>
                     探索の行動は常に 2×2 の 4
-                    つ（探索／調合アイテム／魔法／階段）。武器の一括捨ては「調合アイテム」内です。
+                    つ（探索／調合アイテム／魔法／階段）。武器・防具の一括捨ては「調合アイテム」内です。
                   </li>
                   <li>
                     戦闘のメインは 2×2 の 4
@@ -684,10 +688,10 @@ export function HackAndSlashGame({
               </section>
               <section>
                 <h3 className="mb-1 text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
-                  武器の括弧
+                  武器・防具の括弧
                 </h3>
                 <p className="text-sm">
-                  装備・所持に表示される短い説明（括弧内）は、吸命・心眼・貫通・連閃などの効き方の目安です。長押しやホバーで全文を確認できます。
+                  装備・所持に表示される短い説明（括弧内）は、武器なら吸命・心眼・貫通・連閃、防具なら棘甲・結界・堅壳・滴血などの効き方の目安です。防御は敵の物理攻撃を軽減し、探索での転倒ダメージも少し抑えます。長押しやホバーで全文を確認できます。
                 </p>
               </section>
               <section>
@@ -871,6 +875,9 @@ export function HackAndSlashGame({
           <p className="text-xs text-[var(--muted)]">装備</p>
           <p>
             {p.weapon ? formatWeaponEquipLine(p.weapon) : "素手"}
+          </p>
+          <p className="mt-1">
+            {p.armor ? formatArmorEquipLine(p.armor) : "防具なし"}
           </p>
         </div>
       </section>

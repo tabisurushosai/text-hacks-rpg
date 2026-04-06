@@ -1,5 +1,5 @@
 import { jobPhysicalMul } from "./balance";
-import type { JobId, Player } from "./types";
+import type { Armor, JobId, Player } from "./types";
 
 function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n));
@@ -34,6 +34,19 @@ export function computeEnemyDamage(
 ): number {
   const raw = enemyAtk + random0or1;
   return clamp(raw, 1, 999);
+}
+
+/**
+ * 敵の一撃に対する防具による軽減（ward は固定 +1）。
+ * aegis の確率半減は core の敵ターンで処理。
+ */
+export function mitigateDamageWithArmor(
+  rawDamage: number,
+  armor: Armor | null,
+): number {
+  if (!armor) return clamp(rawDamage, 1, 999);
+  const ward = armor.special === "ward" ? 1 : 0;
+  return clamp(rawDamage - armor.def - ward, 1, 999);
 }
 
 export function processLevelUpAccumulation(player: Player): {

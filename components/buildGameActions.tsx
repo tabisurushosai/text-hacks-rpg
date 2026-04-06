@@ -4,7 +4,7 @@ import {
   CRAFT_COST,
   combatMagicMenuPrefix,
   EXPLORE_CASTABLE_SPELLS,
-  inventoryWeaponTitle,
+  inventoryEquipTitle,
   isJobSkillSpell,
   ITEM_HERB,
   ITEM_MANA_HERB,
@@ -58,8 +58,8 @@ export function buildGameActions(
 
   if (game.phase === "explore") {
     if (game.exploreMenu === "items") {
-      const weaponHeldItems = p.inventory
-        .filter((x) => x.kind === "weapon")
+      const equipHeldItems = p.inventory
+        .filter((x) => x.kind === "weapon" || x.kind === "armor")
         .reduce((s, w) => s + w.count, 0);
       const herbs = countMaterial(game, ITEM_HERB);
       const manaHerbs = countMaterial(game, ITEM_MANA_HERB);
@@ -96,7 +96,7 @@ export function buildGameActions(
       const useEntries: ActionEntry[] = p.inventory.map((it) => ({
         key: `explore-use-${it.id}`,
         label: inventoryActionLabel(it),
-        title: inventoryWeaponTitle(it),
+        title: inventoryEquipTitle(it),
         onActivate: () =>
           setGame((g) => {
             const idx = g.player.inventory.findIndex((x) => x.id === it.id);
@@ -109,9 +109,10 @@ export function buildGameActions(
         ...useEntries,
         {
           key: "discard-weapons",
-          label: "装備以外の武器を捨てる",
-          disabled: weaponHeldItems === 0,
-          title: "所持している武器だけをまとめて捨てます（装備中は残ります）",
+          label: "装備以外の武器・防具を捨てる",
+          disabled: equipHeldItems === 0,
+          title:
+            "所持している武器・防具だけをまとめて捨てます（装備中は残ります）",
           onActivate: () => setGame((g) => discardInventoryWeapons(g)),
         },
         {
@@ -292,7 +293,7 @@ export function buildGameActions(
     const items: ActionEntry[] = p.inventory.map((it) => ({
       key: `item-${it.id}`,
       label: inventoryActionLabel(it),
-      title: inventoryWeaponTitle(it),
+      title: inventoryEquipTitle(it),
       onActivate: () =>
         setGame((g) => {
           const idx = g.player.inventory.findIndex((x) => x.id === it.id);

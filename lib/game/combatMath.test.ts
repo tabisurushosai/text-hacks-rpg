@@ -3,6 +3,7 @@ import {
   computeEnemyDamage,
   computePhysicalDamage,
   expToNextLevelRequirement,
+  mitigateDamageWithArmor,
   processLevelUpAccumulation,
 } from "./combatMath";
 import type { Player } from "./types";
@@ -16,6 +17,7 @@ const basePlayer = (): Player => ({
   exp: 0,
   baseAtk: 3,
   weapon: { fullName: "試し剣", atk: 2, category: "sword", special: "none" },
+  armor: null,
   knownSpells: [],
   inventory: [],
 });
@@ -55,6 +57,26 @@ describe("combatMath", () => {
   it("computeEnemyDamage adds 0 or 1", () => {
     expect(computeEnemyDamage(5, 0)).toBe(5);
     expect(computeEnemyDamage(5, 1)).toBe(6);
+  });
+
+  it("mitigateDamageWithArmor subtracts def and ward bonus", () => {
+    expect(mitigateDamageWithArmor(8, null)).toBe(8);
+    expect(
+      mitigateDamageWithArmor(8, {
+        fullName: "試し鎧",
+        def: 3,
+        category: "leather",
+        special: "none",
+      }),
+    ).toBe(5);
+    expect(
+      mitigateDamageWithArmor(4, {
+        fullName: "結界鎧",
+        def: 2,
+        category: "mail",
+        special: "ward",
+      }),
+    ).toBe(1);
   });
 
   it("processLevelUpAccumulation chains levels", () => {
