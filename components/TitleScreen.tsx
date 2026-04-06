@@ -15,8 +15,7 @@ type TitleScreenProps = {
 };
 
 export function TitleScreen({ onEnter }: TitleScreenProps) {
-  const { startBgmExplore, bgmMissing, tryPlayTitleBgm, titleBgmDead } =
-    useGameBgm();
+  const { startBgmExplore, bgmMissing, tryPlayTitleBgm } = useGameBgm();
 
   const handleEnter = useCallback(async () => {
     await startBgmExplore();
@@ -101,12 +100,9 @@ export function TitleScreen({ onEnter }: TitleScreenProps) {
         <p className="mb-3 font-sans text-[11px] tracking-[0.35em] text-[var(--muted)] uppercase">
           Text descent
         </p>
-        <h1 className="mb-2 text-[clamp(2.5rem,12vw,3.75rem)] font-black leading-none tracking-[0.02em] text-[var(--text)] drop-shadow-[0_0_40px_rgba(91,140,122,0.25)]">
+        <h1 className="mb-10 text-[clamp(2.5rem,12vw,3.75rem)] font-black leading-none tracking-[0.02em] text-[var(--text)] drop-shadow-[0_0_40px_rgba(91,140,122,0.25)]">
           層底譚
         </h1>
-        <p className="mb-10 max-w-[18rem] text-sm leading-relaxed text-[var(--muted)]">
-          一行ずつ選び、階を下りる。
-        </p>
 
         <button
           type="button"
@@ -117,10 +113,6 @@ export function TitleScreen({ onEnter }: TitleScreenProps) {
         </button>
 
         <p className="mt-8 font-sans text-[11px] text-[var(--muted)] opacity-80">
-          {titleBgmDead
-            ? "タイトル用: title.mp3（無ければ theme / explore で代用）"
-            : "タイトル BGM は表示直後か画面タップで再生を試みます"}
-          <br />
           {bgmMissing
             ? "本編: explore.mp3 と combat.mp3（または theme）を public/bgm に"
             : "Enter でも潜れる · 本編の BGM は画面右上から停止できます"}
