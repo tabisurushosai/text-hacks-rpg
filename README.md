@@ -9,7 +9,8 @@
 | **推奨** | スマホでホーム画面に追加 | スタンドアロン表示でタップや音が安定しやすい（`manifest.webmanifest` あり） |
 | 共有用 | LINE 等の in-app | 一時的な閲覧向け。長期的な最適化の主対象ではない |
 
-制作の方針・世界観の軸は **[docs/VISION.md](docs/VISION.md)** にまとめています。
+制作の方針・世界観の軸は **[docs/VISION.md](docs/VISION.md)** にまとめています。  
+**開発引き継ぎ（新しいチャット用）** は **[docs/HANDOFF.md](docs/HANDOFF.md)** を参照してください。
 
 ---
 
