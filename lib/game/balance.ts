@@ -6,6 +6,59 @@
  * - 商業・拡張時: 難易度プリセットを増やすなら、この倍率を切り替えるのが最短
  */
 
+import type { JobId } from "./types";
+
+/** タイトル・ステータス・ヘルプ用 */
+export const JOB_META: Record<
+  JobId,
+  { label: string; tag: string; helpLine: string }
+> = {
+  warrior: {
+    label: "戦士",
+    tag: "Easy",
+    helpLine:
+      "物理攻撃がやや強い。攻撃魔法はやや控えめ。職スキルは「強撃」「応急措置」から開始。",
+  },
+  mage: {
+    label: "魔法使い",
+    tag: "Normal",
+    helpLine:
+      "攻撃魔法がやや強い。物理はやや控えめ。職スキルは「魔力撃」「精神統一」から開始。",
+  },
+  farmer: {
+    label: "農民",
+    tag: "Hard",
+    helpLine:
+      "物理も攻撃魔法も控えめ。職スキルは「泥投げ」「仮眠」から開始。やり込み向け。",
+  },
+};
+
+export const JOB_ORDER: JobId[] = ["warrior", "mage", "farmer"];
+
+/** 通常攻撃（会心・連閃の前）に掛ける倍率 */
+export function jobPhysicalMul(job: JobId): number {
+  switch (job) {
+    case "warrior":
+      return 1.12;
+    case "mage":
+      return 0.88;
+    case "farmer":
+      return 0.78;
+  }
+}
+
+/** 属性魔法・職の攻撃スキル（魔力撃・泥投げ等）。回復・MP回復・強撃は対象外 */
+export function jobOffensiveMagicMul(job: JobId): number {
+  switch (job) {
+    case "warrior":
+      return 0.94;
+    case "mage":
+      return 1.14;
+    case "farmer":
+      return 0.78;
+  }
+}
+
 /** 1周の長さの参照（分）。UIやコメントの根拠用 */
 export const RUN_TARGET_MINUTES = 30;
 

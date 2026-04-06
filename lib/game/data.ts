@@ -1,6 +1,7 @@
 import type {
   EnemyTemplate,
   InventoryItem,
+  JobId,
   SpellElement,
   SpellId,
   Weapon,
@@ -199,7 +200,57 @@ export const SPELLS: Record<
     mpCost: 9,
     description: "HPを大きく回復。",
   },
+  war_cleave: {
+    label: "強撃",
+    mpCost: 5,
+    description:
+      "職スキル。武器と腕力に近いダメージ。防御をやや無視（弱点なし）。",
+  },
+  war_resolve: {
+    label: "応急措置",
+    mpCost: 6,
+    description: "職スキル。HPを回復する。探索中も使える。",
+  },
+  mage_ether: {
+    label: "魔力撃",
+    mpCost: 4,
+    description:
+      "職スキル。無属性の魔法ダメージ。弱点は付かない。",
+  },
+  mage_tap: {
+    label: "精神統一",
+    mpCost: 5,
+    description: "職スキル。MPを回復する。探索中も使える。",
+  },
+  far_mud: {
+    label: "泥投げ",
+    mpCost: 3,
+    description:
+      "職スキル。低火力だが、動きを止めやすい。",
+  },
+  far_rest: {
+    label: "仮眠",
+    mpCost: 7,
+    description:
+      "職スキル。HPとMPを少し回復。探索中も使える。",
+  },
 };
+
+/** 冒険開始時に覚えている職スキル（綴りドロップの対象外） */
+export const JOB_STARTING_SPELLS: Record<JobId, SpellId[]> = {
+  warrior: ["war_cleave", "war_resolve"],
+  mage: ["mage_ether", "mage_tap"],
+  farmer: ["far_mud", "far_rest"],
+};
+
+/** 探索画面の「魔法」から唱えられるもの */
+export const EXPLORE_CASTABLE_SPELLS: SpellId[] = [
+  "heal_soft",
+  "heal_solid",
+  "war_resolve",
+  "mage_tap",
+  "far_rest",
+];
 
 /** 弱点判定に使う（回復は未定義） */
 export const SPELL_ELEMENT: Partial<Record<SpellId, SpellElement>> = {
@@ -211,16 +262,73 @@ export const SPELL_ELEMENT: Partial<Record<SpellId, SpellElement>> = {
   volt_chain: "thunder",
 };
 
-export const SPELL_BOOKS: { name: string; spell: SpellId }[] = [
+export const SPELL_ELEMENT_LABEL: Record<SpellElement, string> = {
+  fire: "炎",
+  ice: "氷",
+  thunder: "雷",
+};
+
+/** 戦闘「魔法」メニュー：攻撃系の並び */
+const COMBAT_ATTACK_SPELLS: SpellId[] = [
+  "fire_jolt",
+  "fire_blast",
+  "ice_shard",
+  "ice_wrath",
+  "volt_needle",
+  "volt_chain",
+  "war_cleave",
+  "mage_ether",
+  "far_mud",
+];
+
+/** 戦闘「魔法」メニュー：回復・支援の並び */
+const COMBAT_SUPPORT_SPELLS: SpellId[] = [
+  "heal_soft",
+  "heal_solid",
+  "war_resolve",
+  "mage_tap",
+  "far_rest",
+];
+
+export function sortKnownSpellsForCombatMenu(known: SpellId[]): SpellId[] {
+  const set = new Set(known);
+  const ordered: SpellId[] = [];
+  for (const id of COMBAT_ATTACK_SPELLS) {
+    if (set.has(id)) ordered.push(id);
+  }
+  for (const id of COMBAT_SUPPORT_SPELLS) {
+    if (set.has(id)) ordered.push(id);
+  }
+  return ordered;
+}
+
+export function combatSpellMenuPrefix(spell: SpellId): string {
+  return COMBAT_ATTACK_SPELLS.includes(spell) ? "【攻撃】" : "【回復・支援】";
+}
+
+/** 1〜5階の綴りドロップ。炎・氷・雷・癒しの基本形 */
+export const SPELL_BOOKS_BASIC: { name: string; spell: SpellId }[] = [
   { name: "火の綴り", spell: "fire_jolt" },
-  { name: "爆炎の綴り", spell: "fire_blast" },
   { name: "氷の綴り", spell: "ice_shard" },
-  { name: "凍嵐の綴り", spell: "ice_wrath" },
   { name: "雷糸の綴り", spell: "volt_needle" },
-  { name: "大雷の綴り", spell: "volt_chain" },
   { name: "祈りの綴り", spell: "heal_soft" },
+];
+
+/** 6階以降に混ざる上位綴り（単体では1〜5階では出ない） */
+export const SPELL_BOOKS_ADVANCED: { name: string; spell: SpellId }[] = [
+  { name: "爆炎の綴り", spell: "fire_blast" },
+  { name: "凍嵐の綴り", spell: "ice_wrath" },
+  { name: "大雷の綴り", spell: "volt_chain" },
   { name: "聖句の綴り", spell: "heal_solid" },
 ];
+
+/** 綴りドロップ用。floor は 1 起算 */
+export function spellBooksLootPool(floor: number): { name: string; spell: SpellId }[] {
+  if (floor >= 6) {
+    return [...SPELL_BOOKS_BASIC, ...SPELL_BOOKS_ADVANCED];
+  }
+  return [...SPELL_BOOKS_BASIC];
+}
 
 /** クラフト: 5個で1つ */
 export const CRAFT_COST = 5;

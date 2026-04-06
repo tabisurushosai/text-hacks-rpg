@@ -1,8 +1,10 @@
 "use client";
 
 import { Noto_Serif_JP } from "next/font/google";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useGameBgm } from "@/components/GameBgmContext";
+import { JOB_META, JOB_ORDER } from "@/lib/game/balance";
+import type { JobId } from "@/lib/game/types";
 
 const titleSerif = Noto_Serif_JP({
   weight: ["600", "900"],
@@ -11,10 +13,11 @@ const titleSerif = Noto_Serif_JP({
 });
 
 type TitleScreenProps = {
-  onEnter: () => void;
+  onEnter: (job: JobId) => void;
 };
 
 export function TitleScreen({ onEnter }: TitleScreenProps) {
+  const [step, setStep] = useState<"title" | "chooseJob">("title");
   const {
     startBgmExplore,
     tryPlayTitleBgm,
@@ -23,10 +26,13 @@ export function TitleScreen({ onEnter }: TitleScreenProps) {
     titleBgmDead,
   } = useGameBgm();
 
-  const handleEnter = useCallback(async () => {
-    await startBgmExplore();
-    onEnter();
-  }, [onEnter, startBgmExplore]);
+  const confirmJob = useCallback(
+    async (job: JobId) => {
+      await startBgmExplore();
+      onEnter(job);
+    },
+    [onEnter, startBgmExplore],
+  );
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -40,18 +46,28 @@ export function TitleScreen({ onEnter }: TitleScreenProps) {
         return;
       }
       if (titleBgmEnabled) tryPlayTitleBgm();
+      if (e.key === "Escape" && step === "chooseJob") {
+        e.preventDefault();
+        setStep("title");
+        return;
+      }
       if (e.key !== "Enter") return;
       e.preventDefault();
-      void handleEnter();
+      if (step === "title") {
+        setStep("chooseJob");
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [handleEnter, tryPlayTitleBgm, titleBgmEnabled]);
+  }, [step, tryPlayTitleBgm, titleBgmEnabled]);
 
   const btnBgm = [
     "touch-manipulation rounded border px-4 py-3 font-sans text-sm font-medium transition",
     "min-h-[48px] w-full sm:min-h-0",
   ].join(" ");
+
+  const btnJob =
+    "touch-manipulation rounded border border-[#3d5c52] bg-[#15221c]/90 px-3 py-3 text-left text-sm text-[var(--text)] shadow-[0_0_20px_rgba(91,140,122,0.1)] transition hover:border-[var(--accent)] hover:bg-[#1a2e26] hover:shadow-[0_0_28px_rgba(91,140,122,0.18)] active:scale-[0.99]";
 
   return (
     <div
@@ -103,44 +119,84 @@ export function TitleScreen({ onEnter }: TitleScreenProps) {
           層底譚
         </h1>
 
-        <div
-          className="grid w-full max-w-lg grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-2"
-          role="group"
-          aria-label="タイトル操作"
-        >
-          <button
-            type="button"
-            onClick={() => void handleEnter()}
-            className="touch-manipulation order-1 rounded border border-[#3d5c52] bg-[#15221c]/90 px-4 py-3 text-base font-semibold tracking-wide text-[var(--text)] shadow-[0_0_24px_rgba(91,140,122,0.12)] transition hover:border-[var(--accent)] hover:bg-[#1a2e26] hover:shadow-[0_0_32px_rgba(91,140,122,0.22)] active:scale-[0.99] sm:order-none sm:min-h-[4.5rem]"
+        {step === "title" ? (
+          <div
+            className="grid w-full max-w-lg grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-2"
+            role="group"
+            aria-label="タイトル操作"
           >
-            冒険を始める
-          </button>
-          <button
-            type="button"
-            disabled={titleBgmDead}
-            aria-pressed={titleBgmEnabled}
-            onClick={() => setTitleBgmEnabled(true)}
-            className={`${btnBgm} order-2 border-[#3d5c52] sm:order-none ${
-              titleBgmEnabled
-                ? "bg-[#1a2e26] text-[var(--text)] ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-[#080c10]"
-                : "border-[var(--border)] bg-[#15221c]/80 text-[var(--muted)] hover:border-[var(--accent)] hover:text-[var(--text)]"
-            } disabled:cursor-not-allowed disabled:opacity-40`}
+            <button
+              type="button"
+              onClick={() => setStep("chooseJob")}
+              className="touch-manipulation order-1 rounded border border-[#3d5c52] bg-[#15221c]/90 px-4 py-3 text-base font-semibold tracking-wide text-[var(--text)] shadow-[0_0_24px_rgba(91,140,122,0.12)] transition hover:border-[var(--accent)] hover:bg-[#1a2e26] hover:shadow-[0_0_32px_rgba(91,140,122,0.22)] active:scale-[0.99] sm:order-none sm:min-h-[4.5rem]"
+            >
+              冒険を始める
+            </button>
+            <button
+              type="button"
+              disabled={titleBgmDead}
+              aria-pressed={titleBgmEnabled}
+              onClick={() => setTitleBgmEnabled(true)}
+              className={`${btnBgm} order-2 border-[#3d5c52] sm:order-none ${
+                titleBgmEnabled
+                  ? "bg-[#1a2e26] text-[var(--text)] ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-[#080c10]"
+                  : "border-[var(--border)] bg-[#15221c]/80 text-[var(--muted)] hover:border-[var(--accent)] hover:text-[var(--text)]"
+              } disabled:cursor-not-allowed disabled:opacity-40`}
+            >
+              タイトルBGM ON
+            </button>
+            <button
+              type="button"
+              aria-pressed={!titleBgmEnabled}
+              onClick={() => setTitleBgmEnabled(false)}
+              className={`${btnBgm} order-3 border-[var(--border)] bg-[#15221c]/80 text-[var(--muted)] hover:border-[var(--accent)] hover:text-[var(--text)] sm:order-none ${
+                !titleBgmEnabled
+                  ? "ring-2 ring-[var(--border)] ring-offset-2 ring-offset-[#080c10]"
+                  : ""
+              }`}
+            >
+              タイトルBGM OFF
+            </button>
+          </div>
+        ) : (
+          <div
+            className="w-full max-w-lg space-y-4 text-left"
+            role="group"
+            aria-label="職の選択"
           >
-            タイトルBGM ON
-          </button>
-          <button
-            type="button"
-            aria-pressed={!titleBgmEnabled}
-            onClick={() => setTitleBgmEnabled(false)}
-            className={`${btnBgm} order-3 border-[var(--border)] bg-[#15221c]/80 text-[var(--muted)] hover:border-[var(--accent)] hover:text-[var(--text)] sm:order-none ${
-              !titleBgmEnabled
-                ? "ring-2 ring-[var(--border)] ring-offset-2 ring-offset-[#080c10]"
-                : ""
-            }`}
-          >
-            タイトルBGM OFF
-          </button>
-        </div>
+            <p className="text-center font-sans text-sm text-[var(--muted)]">
+              職を選んでください（戦闘の与ダメに反映されます）
+            </p>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {JOB_ORDER.map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  className={btnJob}
+                  onClick={() => void confirmJob(id)}
+                >
+                  <span className="block font-semibold text-[var(--text)]">
+                    {JOB_META[id].label}
+                  </span>
+                  <span className="mt-0.5 block font-sans text-xs text-[var(--muted)]">
+                    {JOB_META[id].tag}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <p className="mt-4 text-center font-sans text-[11px] leading-snug text-[var(--muted)]">
+              綴りの上位版（業火・凍嵐・落雷・大癒など）は 6
+              階以降のドロップに混ざります。
+            </p>
+            <button
+              type="button"
+              onClick={() => setStep("title")}
+              className="touch-manipulation mt-3 w-full rounded border border-[var(--border)] bg-[#15221c]/80 px-4 py-3 font-sans text-sm text-[var(--muted)] transition hover:border-[var(--accent)] hover:text-[var(--text)]"
+            >
+              戻る
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

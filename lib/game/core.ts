@@ -1,6 +1,7 @@
 import {
   BOSS_ENRAGE_DAMAGE_MUL,
   BOSS_ENRAGE_HP_RATIO,
+  jobPhysicalMul,
   scaleBossFromTemplate,
   scaleEnemyAtk,
   scaleEnemyHp,
@@ -17,8 +18,9 @@ import {
   ITEM_POTION_MEDIUM,
   POTION_MEDIUM_HP_POWER,
   POTION_MEDIUM_MP_POWER,
-  SPELL_BOOKS,
-  SPELL_ELEMENT,
+  EXPLORE_CASTABLE_SPELLS,
+  JOB_STARTING_SPELLS,
+  spellBooksLootPool,
   SPELLS,
   WEAPON_BASES,
   WEAPON_PREFIXES,
@@ -34,11 +36,13 @@ import {
   flavorQuiet,
 } from "./exploreFlavor";
 import { LORE_INTRO_DESCENDER } from "./lore";
+import { applyExploreSelfSpell, runCombatSpell } from "./spellEffects";
 import type {
   EnemyInstance,
   GameState,
   InventoryItem,
   ItemKind,
+  JobId,
   Player,
   SpellElement,
   SpellId,
@@ -141,7 +145,7 @@ function consumeNamed(
   return sortInventoryItems(next);
 }
 
-export function initialPlayer(): Player {
+export function initialPlayer(job: JobId): Player {
   resetItemIdCounter();
   return {
     hp: 28,
@@ -152,7 +156,7 @@ export function initialPlayer(): Player {
     exp: 0,
     baseAtk: 3,
     weapon: null,
-    knownSpells: [],
+    knownSpells: [...JOB_STARTING_SPELLS[job]],
     inventory: [
       {
         id: nextItemId(),
@@ -165,10 +169,11 @@ export function initialPlayer(): Player {
   };
 }
 
-export function initialGameState(): GameState {
+export function initialGameState(job: JobId): GameState {
   return {
     phase: "explore",
-    player: initialPlayer(),
+    job,
+    player: initialPlayer(job),
     enemy: null,
     combatMenu: "main",
     floor: 1,
@@ -204,11 +209,15 @@ function deathHintAfterCombat(state: GameState): string | null {
   return "【手がかり】武器の攻撃力や特殊効果（吸命・心眼など）を見直し、落とし物を見逃していないか確かめよう。";
 }
 
-function resetToEntrance(prevLog: string[], hint?: string | null): GameState {
+function resetToEntrance(
+  job: JobId,
+  prevLog: string[],
+  hint?: string | null,
+): GameState {
   const tail = [...prevLog, "力尽きた。", "気がつくと入り口にいた。"];
   if (hint) tail.push(hint);
   return {
-    ...initialGameState(),
+    ...initialGameState(job),
     log: tail,
   };
 }
@@ -275,12 +284,17 @@ function playerCritChance(player: Player): number {
   return Math.min(0.42, PLAYER_CRIT_CHANCE + bonus);
 }
 
-function rollPhysicalDamage(player: Player, enemyDef: number): number {
+function rollPhysicalDamage(
+  player: Player,
+  enemyDef: number,
+  job: JobId,
+): number {
   const w = player.weapon?.atk ?? 0;
   const pierce = weaponPierceFlat(player);
   const effDef = Math.max(0, enemyDef - pierce);
   const raw = player.baseAtk + w - effDef + Math.floor(Math.random() * 3);
-  return clamp(raw, 1, 999);
+  const scaled = Math.floor(raw * jobPhysicalMul(job));
+  return clamp(scaled, 1, 999);
 }
 
 const PLAYER_ATTACK_MISS_CHANCE = 0.05;
@@ -376,7 +390,7 @@ function rollDrops(player: Player, lines: string[], floor: number): Player {
 
   const bookChance = Math.min(0.46, 0.32 + Math.max(0, floor - 1) * 0.018);
   if (Math.random() < bookChance) {
-    const book = pick(SPELL_BOOKS);
+    const book = pick(spellBooksLootPool(floor));
     if (!p.knownSpells.includes(book.spell)) {
       p = {
         ...p,
@@ -469,7 +483,7 @@ export function explore(state: GameState): GameState {
       const nm = clamp(state.player.mp + add, 0, state.player.maxMp);
       const up = nm - state.player.mp;
       if (up > 0) {
-        lines.push(`静寂の中、星屑のような光がMPを${up}だけ満たした。`);
+        lines.push(`静寂の中、細い光がMPを${up}だけ満たした。`);
         return { ...state, player: { ...state.player, mp: nm }, log: [...state.log, ...lines] };
       }
     }
@@ -532,6 +546,7 @@ export function explore(state: GameState): GameState {
       combatMenu: "main",
       exploreMenu: "main",
       bossCombatTurns: 0,
+      combatWeaknessRevealed: undefined,
       totalBattlesFought: state.totalBattlesFought + 1,
       log: [...state.log, ...lines],
     };
@@ -549,6 +564,7 @@ export function explore(state: GameState): GameState {
       combatMenu: "main",
       exploreMenu: "main",
       bossCombatTurns: 0,
+      combatWeaknessRevealed: undefined,
       totalBattlesFought: state.totalBattlesFought + 1,
       log: [...state.log, ...lines],
     };
@@ -575,6 +591,7 @@ export function explore(state: GameState): GameState {
     lines.push(`足を滑らせた。${dmg}のダメージ。`);
     if (nh <= 0) {
       return resetToEntrance(
+        state.job,
         [...state.log, ...lines],
         "【手がかり】探索でのダメージも積み重なる。HPが低いときは回復してから動こう。",
       );
@@ -674,6 +691,7 @@ export function descendStairs(state: GameState): GameState {
       combatMenu: "main",
       exploreMenu: "main",
       bossCombatTurns: 0,
+      combatWeaknessRevealed: undefined,
       totalBattlesFought: state.totalBattlesFought + 1,
       log: [...state.log, ...lines],
     };
@@ -727,12 +745,10 @@ export function closeExploreMagicMenu(state: GameState): GameState {
   return { ...state, exploreMenu: "main" };
 }
 
-const EXPLORE_HEAL_SPELLS: SpellId[] = ["heal_soft", "heal_solid"];
-
-/** 探索中のみ。回復魔法（癒し・大癒）を唱える */
+/** 探索中のみ。回復・職スキルのうち探索可能なものを唱える */
 export function exploreMagic(state: GameState, spell: SpellId): GameState {
   if (state.phase !== "explore") return state;
-  if (!EXPLORE_HEAL_SPELLS.includes(spell)) return state;
+  if (!EXPLORE_CASTABLE_SPELLS.includes(spell)) return state;
   if (!state.player.knownSpells.includes(spell)) return state;
 
   const cost = SPELLS[spell].mpCost;
@@ -743,28 +759,21 @@ export function exploreMagic(state: GameState, spell: SpellId): GameState {
     };
   }
 
-  let player = { ...state.player, mp: state.player.mp - cost };
-  const lines: string[] = [];
-  const lv = player.level;
-
-  if (spell === "heal_soft") {
-    const heal =
-      10 + Math.floor(Math.random() * 6) + Math.floor(lv * 0.75);
-    const nh = clamp(player.hp + heal, 0, player.maxHp);
-    lines.push(`癒しを唱えた。HPが${nh - player.hp}回復した。`);
-    player = { ...player, hp: nh };
-  } else {
-    const heal =
-      22 + Math.floor(Math.random() * 11) + Math.floor(lv * 1.35);
-    const nh = clamp(player.hp + heal, 0, player.maxHp);
-    lines.push(`大癒を唱えた。HPが${nh - player.hp}回復した。`);
-    player = { ...player, hp: nh };
+  const playerAfterCost = { ...state.player, mp: state.player.mp - cost };
+  const lv = playerAfterCost.level;
+  const applied = applyExploreSelfSpell(spell, playerAfterCost, lv);
+  if (!applied) {
+    return {
+      ...state,
+      player: { ...state.player, mp: state.player.mp },
+      log: [...state.log, "その魔法はここでは唱えられない。"],
+    };
   }
 
   return {
     ...state,
-    player,
-    log: [...state.log, ...lines],
+    player: applied.player,
+    log: [...state.log, ...applied.lines],
   };
 }
 
@@ -958,6 +967,7 @@ function endCombatVictory(state: GameState, lines: string[]): GameState {
     combatMenu: "main",
     bossCombatTurns: 0,
     bossDefeated: wasBoss ? true : state.bossDefeated,
+    combatWeaknessRevealed: undefined,
     player,
     log: [...state.log, ...lines],
   };
@@ -1001,6 +1011,7 @@ function enemyTurn(state: GameState, lines: string[]): GameState {
   lines.push(`${enemy.name}の攻撃。${dmg}のダメージ。`);
   if (newHp <= 0) {
     return resetToEntrance(
+      state.job,
       [...state.log, ...lines],
       deathHintAfterCombat(state),
     );
@@ -1027,7 +1038,7 @@ export function combatFight(state: GameState): GameState {
 
   let totalDealt = 0;
 
-  let dmg = rollPhysicalDamage(player, enemy.def);
+  let dmg = rollPhysicalDamage(player, enemy.def, s.job);
   if (Math.random() < playerCritChance(player)) {
     dmg = Math.max(1, Math.floor(dmg * 2));
     lines.push("会心の一撃。");
@@ -1041,7 +1052,7 @@ export function combatFight(state: GameState): GameState {
     enemy.hp > 0 &&
     Math.random() < 0.22
   ) {
-    let dmg2 = rollPhysicalDamage(player, enemy.def);
+    let dmg2 = rollPhysicalDamage(player, enemy.def, s.job);
     if (Math.random() < playerCritChance(player)) {
       dmg2 = Math.max(1, Math.floor(dmg2 * 2));
       lines.push("会心の追撃。");
@@ -1077,51 +1088,6 @@ export function combatFight(state: GameState): GameState {
   return enemyTurn(next, []);
 }
 
-function applyElementalMagicDamage(
-  lines: string[],
-  enemy: EnemyInstance,
-  spell: SpellId,
-  rawDmg: number,
-): void {
-  let dmg = rawDmg;
-  const el = SPELL_ELEMENT[spell];
-  if (el && enemy.weakness === el) {
-    dmg = Math.floor(dmg * 1.52);
-    lines.push("弱点を突いた！");
-  }
-  enemy.hp = clamp(enemy.hp - dmg, 0, enemy.maxHp);
-  lines.push(`${dmg}のダメージ。`);
-}
-
-function tryApplyStun(
-  lines: string[],
-  enemy: EnemyInstance,
-  normalChance: number,
-  normalTurnsMin: number,
-  normalTurnsMax: number,
-  bossChance: number,
-  bossTurns: number,
-): void {
-  if (enemy.isBoss) {
-    if (Math.random() < bossChance) {
-      const prev = enemy.frozenTurns ?? 0;
-      enemy.frozenTurns = Math.max(prev, bossTurns);
-      lines.push(
-        `${enemy.name}は動けない（あと${enemy.frozenTurns}ターン）。`,
-      );
-    }
-    return;
-  }
-  if (Math.random() < normalChance) {
-    const t =
-      normalTurnsMin +
-      Math.floor(Math.random() * (normalTurnsMax - normalTurnsMin + 1));
-    const prev = enemy.frozenTurns ?? 0;
-    enemy.frozenTurns = Math.max(prev, t);
-    lines.push(`${enemy.name}は動けない（あと${enemy.frozenTurns}ターン）。`);
-  }
-}
-
 export function combatMagic(state: GameState, spell: SpellId): GameState {
   if (state.phase !== "combat" || !state.enemy) return state;
   if (!state.player.knownSpells.includes(spell)) return state;
@@ -1135,98 +1101,41 @@ export function combatMagic(state: GameState, spell: SpellId): GameState {
   }
 
   const s = withBossTurnIncrement(state);
-  const lines: string[] = [];
-  let player = { ...s.player, mp: s.player.mp - cost };
+  const playerAfterCost = { ...s.player, mp: s.player.mp - cost };
   const enemy = { ...s.enemy! };
-  const floor = state.floor;
-  const lv = player.level;
+  const result = runCombatSpell(spell, {
+    player: playerAfterCost,
+    enemy,
+    floor: state.floor,
+    lv: playerAfterCost.level,
+    job: s.job,
+  });
 
-  if (spell === "fire_jolt") {
-    const raw =
-      8 +
-      Math.floor(Math.random() * 7) +
-      Math.floor(lv * 1.45) +
-      Math.floor(floor * 0.42);
-    const pierce = Math.floor(enemy.def * 0.42);
-    const dmg = Math.max(2, raw - pierce);
-    lines.push("火矢を放った。");
-    applyElementalMagicDamage(lines, enemy, spell, dmg);
-  } else if (spell === "fire_blast") {
-    const raw =
-      15 +
-      Math.floor(Math.random() * 9) +
-      Math.floor(lv * 2.05) +
-      Math.floor(floor * 0.52);
-    const dmg = Math.max(4, raw);
-    lines.push("業火が敵を包んだ。");
-    applyElementalMagicDamage(lines, enemy, spell, dmg);
-  } else if (spell === "ice_shard") {
-    const raw =
-      5 +
-      Math.floor(Math.random() * 6) +
-      Math.floor(lv * 1.05) +
-      Math.floor(floor * 0.32);
-    const pierce = Math.floor(enemy.def * 0.22);
-    const dmg = Math.max(2, raw - pierce);
-    lines.push("氷片を叩きつけた。");
-    applyElementalMagicDamage(lines, enemy, spell, dmg);
-    tryApplyStun(lines, enemy, 0.48, 2, 4, 0.24, 1);
-  } else if (spell === "ice_wrath") {
-    const raw =
-      11 +
-      Math.floor(Math.random() * 8) +
-      Math.floor(lv * 1.75) +
-      Math.floor(floor * 0.48);
-    const pierce = Math.floor(enemy.def * 0.3);
-    const dmg = Math.max(3, raw - pierce);
-    lines.push("凍嵐を巻き起こした。");
-    applyElementalMagicDamage(lines, enemy, spell, dmg);
-    tryApplyStun(lines, enemy, 0.62, 2, 4, 0.32, 2);
-  } else if (spell === "volt_needle") {
-    const raw =
-      3 +
-      Math.floor(Math.random() * 4) +
-      Math.floor(lv * 0.75) +
-      Math.floor(floor * 0.22);
-    const dmg = Math.max(1, raw);
-    lines.push("細い雷が刺さった。");
-    applyElementalMagicDamage(lines, enemy, spell, dmg);
-    tryApplyStun(lines, enemy, 0.74, 2, 4, 0.38, 1);
-  } else if (spell === "volt_chain") {
-    const raw =
-      9 +
-      Math.floor(Math.random() * 7) +
-      Math.floor(lv * 1.35) +
-      Math.floor(floor * 0.38);
-    const dmg = Math.max(2, raw);
-    lines.push("落雷が走った。");
-    applyElementalMagicDamage(lines, enemy, spell, dmg);
-    tryApplyStun(lines, enemy, 0.86, 3, 4, 0.46, 2);
-  } else if (spell === "heal_soft") {
-    const heal =
-      10 + Math.floor(Math.random() * 6) + Math.floor(lv * 0.75);
-    const nh = clamp(player.hp + heal, 0, player.maxHp);
-    lines.push(`癒しを唱えた。HPが${nh - player.hp}回復した。`);
-    player = { ...player, hp: nh };
-  } else if (spell === "heal_solid") {
-    const heal =
-      22 + Math.floor(Math.random() * 11) + Math.floor(lv * 1.35);
-    const nh = clamp(player.hp + heal, 0, player.maxHp);
-    lines.push(`大癒を唱えた。HPが${nh - player.hp}回復した。`);
-    player = { ...player, hp: nh };
+  const combatWeaknessRevealed =
+    result.weaknessRevealed ?? s.combatWeaknessRevealed;
+
+  if (result.enemy.hp <= 0) {
+    return endCombatVictory(
+      {
+        ...s,
+        player: result.player,
+        enemy: result.enemy,
+        combatWeaknessRevealed,
+      },
+      result.lines,
+    );
   }
 
-  if (enemy.hp <= 0) {
-    return endCombatVictory({ ...s, player, enemy }, lines);
-  }
-
-  const bossed = enemy.isBoss ? applyBossHpMilestones(enemy, lines) : enemy;
+  const bossed = result.enemy.isBoss
+    ? applyBossHpMilestones(result.enemy, result.lines)
+    : result.enemy;
   const next: GameState = {
     ...s,
-    player,
+    player: result.player,
     enemy: bossed,
     combatMenu: "main",
-    log: [...s.log, ...lines],
+    combatWeaknessRevealed,
+    log: [...s.log, ...result.lines],
   };
   return enemyTurn(next, []);
 }
@@ -1389,6 +1298,7 @@ export function combatRun(state: GameState): GameState {
       enemy: null,
       combatMenu: "main",
       bossCombatTurns: 0,
+      combatWeaknessRevealed: undefined,
       player: { ...s.player, hp: nh, mp: nm },
       log: [...s.log, ...lines],
     };

@@ -1,3 +1,6 @@
+/** 冒険開始時に選ぶ職（戦闘倍率に反映） */
+export type JobId = "warrior" | "mage" | "farmer";
+
 /** 魔法の属性（弱点判定用。回復は無し） */
 export type SpellElement = "fire" | "ice" | "thunder";
 
@@ -9,7 +12,14 @@ export type SpellId =
   | "volt_needle"
   | "volt_chain"
   | "heal_soft"
-  | "heal_solid";
+  | "heal_solid"
+  /** 職スキル（綴りでは習得しない） */
+  | "war_cleave"
+  | "war_resolve"
+  | "mage_ether"
+  | "mage_tap"
+  | "far_mud"
+  | "far_rest";
 
 export type ItemKind = "restoreHp" | "restoreMp" | "weapon";
 
@@ -98,6 +108,7 @@ export type ExploreMenu = "main" | "items" | "magic";
 
 export interface GameState {
   phase: GamePhase;
+  job: JobId;
   player: Player;
   enemy: EnemyInstance | null;
   combatMenu: CombatMenu;
@@ -112,4 +123,6 @@ export interface GameState {
   bossCombatTurns: number;
   /** この周回で交戦を開始した回数（入り口リセットで0に戻る） */
   totalBattlesFought: number;
+  /** この戦闘で一度でも弱点を突いた属性（UI サマリ用。戦闘終了で消える） */
+  combatWeaknessRevealed?: SpellElement;
 }
