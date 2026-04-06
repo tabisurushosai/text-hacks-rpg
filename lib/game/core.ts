@@ -538,6 +538,117 @@ function withBossTurnIncrement(state: GameState): GameState {
   return { ...state, bossCombatTurns: state.bossCombatTurns + 1 };
 }
 
+/** 1〜9 階の探索で、なにも起きない系よりやや優先して発生 */
+const EXPLORE_TREASURE_CHEST_CHANCE = 0.048;
+
+function openExplorationTreasureChest(
+  state: GameState,
+  lines: string[],
+): GameState {
+  const f = state.floor;
+  lines.push(
+    pick([
+      "苔むした宝箱を見つけた。錠は外れている。",
+      "壁の凹みに、古い木箱が押し込まれていた。",
+      "旅立ちに捨てられた荷だろう。留め金の錆びた箱。",
+      "光の届かない角に、小さな宝箱が転がっていた。",
+    ]),
+  );
+
+  const u = Math.random();
+  let p = state.player;
+
+  if (u < 0.3) {
+    const v = Math.random();
+    if (v < 0.4) {
+      p = addLootItem(p, {
+        name: ITEM_HERB,
+        kind: "restoreHp",
+        power: 10,
+        count: 1,
+      });
+      lines.push("薬草が束ねられていた。");
+    } else if (v < 0.78) {
+      p = addLootItem(p, {
+        name: ITEM_MANA_HERB,
+        kind: "restoreMp",
+        power: 8,
+        count: 1,
+      });
+      lines.push("魔力草が干されてあった。");
+    } else if (v < 0.9) {
+      p = addLootItem(p, {
+        name: ITEM_POTION_MINOR,
+        kind: "restoreHp",
+        power: 28,
+        count: 1,
+      });
+      lines.push("初級ポーションが一本入っていた。");
+    } else {
+      p = addLootItem(p, {
+        name: ITEM_MANA_POTION_MINOR,
+        kind: "restoreMp",
+        power: 22,
+        count: 1,
+      });
+      lines.push("初級魔力ポーションが一本入っていた。");
+    }
+  } else if (u < 0.48) {
+    const w = generateWeapon();
+    p = addLootItem(p, {
+      name: w.fullName,
+      kind: "weapon",
+      power: w.atk,
+      count: 1,
+      weaponCategory: w.category,
+      weaponSpecial: w.special,
+    });
+    lines.push(`${w.fullName}が収められていた。`);
+  } else if (u < 0.66) {
+    const a = generateArmor();
+    p = addLootItem(p, {
+      name: a.fullName,
+      kind: "armor",
+      power: a.def,
+      count: 1,
+      armorCategory: a.category,
+      armorSpecial: a.special,
+    });
+    lines.push(`${a.fullName}が折りたたまれて入っていた。`);
+  } else if (u < 0.88) {
+    const xp = 4 + f * 2 + Math.floor(Math.random() * 6);
+    p = { ...p, exp: p.exp + xp };
+    lines.push(`箱底に刻まれた文が脳に焼きついた。経験値を${xp}得た。`);
+    const lvLines: string[] = [];
+    p = maybeLevelUp(p, lvLines);
+    lines.push(...lvLines);
+  } else {
+    const raw = 5 + Math.floor(Math.random() * 6) + Math.floor(f / 2);
+    const soft = raw - Math.floor((p.armor?.def ?? 0) / 3);
+    const dmg = Math.max(2, soft);
+    const nh = clamp(p.hp - dmg, 0, p.maxHp);
+    lines.push(
+      pick([
+        "蓋を開けた瞬間、蒼い火が噴き出した。",
+        "罠だ。内側から熱が弾けた。",
+        "燐光が弾け、胸元を焼いた。",
+      ]),
+    );
+    lines.push(`${dmg}のダメージを受けた。`);
+    if (nh <= 0) {
+      return resetToEntrance(
+        state.job,
+        [...state.log, ...lines],
+        state.floor,
+        "【手がかり】宝箱にも罠がある。HPが低いときは注意しよう。",
+      );
+    }
+    p = { ...p, hp: nh };
+  }
+
+  return { ...state, player: p, log: [...state.log, ...lines] };
+}
+
 export function explore(state: GameState): GameState {
   if (state.phase !== "explore") return state;
 
@@ -627,6 +738,10 @@ export function explore(state: GameState): GameState {
     };
   }
 
+  if (f < 10 && Math.random() < EXPLORE_TREASURE_CHEST_CHANCE) {
+    return openExplorationTreasureChest(state, lines);
+  }
+
   const r = Math.random();
 
   if (r < 0.3) {
@@ -697,7 +812,7 @@ export function explore(state: GameState): GameState {
   }
 
   if (r < 0.56) {
-    if (Math.random() < 0.5) {
+    if (Math.random() < 0.58) {
       const p = addLootItem(state.player, {
         name: ITEM_HERB,
         kind: "restoreHp",
@@ -734,6 +849,24 @@ export function explore(state: GameState): GameState {
     }
     lines.push("湿気だけが肌にまとわりついた。");
     return { ...state, log: [...state.log, ...lines] };
+  }
+
+  if (r < 0.715) {
+    const xp = 2 + Math.floor(Math.random() * 4) + Math.floor(f / 3);
+    let pl = state.player;
+    pl = { ...pl, exp: pl.exp + xp };
+    lines.push(
+      pick([
+        "床の裂け目から星屑のような粒が浮いた。体が少しだけ覚えた。",
+        "通りすぎた燈が、かすかに経験を染めた。",
+        "壁の文様が一瞬だけ脈打った。何かが残った気がする。",
+      ]),
+    );
+    lines.push(`経験値を${xp}得た。`);
+    const lvLines: string[] = [];
+    pl = maybeLevelUp(pl, lvLines);
+    lines.push(...lvLines);
+    return { ...state, player: pl, log: [...state.log, ...lines] };
   }
 
   lines.push(pick(flavorQuiet(state)));
