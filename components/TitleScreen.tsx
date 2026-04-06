@@ -55,7 +55,7 @@ export function TitleScreen({ onEnter }: TitleScreenProps) {
 
   return (
     <div
-      className={`relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden px-6 py-10 ${titleSerif.className}`}
+      className={`relative flex min-h-[100dvh] touch-manipulation flex-col items-center justify-center overflow-hidden px-6 py-10 ${titleSerif.className}`}
       onPointerDownCapture={() => {
         if (titleBgmEnabled) tryPlayTitleBgm();
       }}

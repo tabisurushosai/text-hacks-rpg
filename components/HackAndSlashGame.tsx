@@ -71,6 +71,9 @@ function buildActions(
 
   if (game.phase === "explore") {
     if (game.exploreMenu === "items") {
+      const weaponHeldItems = p.inventory
+        .filter((x) => x.kind === "weapon")
+        .reduce((s, w) => s + w.count, 0);
       const herbs = countMaterial(game, ITEM_HERB);
       const manaHerbs = countMaterial(game, ITEM_MANA_HERB);
       const minorHp = countMaterial(game, ITEM_POTION_MINOR);
@@ -118,6 +121,13 @@ function buildActions(
         ...craftsTier,
         ...useEntries,
         {
+          key: "discard-weapons",
+          label: "装備以外の武器を捨てる",
+          disabled: weaponHeldItems === 0,
+          title: "所持している武器だけをまとめて捨てます（装備中は残ります）",
+          onActivate: () => setGame((g) => discardInventoryWeapons(g)),
+        },
+        {
           key: "back-items",
           label: "戻る",
           onActivate: () => setGame((g) => closeItemsMenu(g)),
@@ -153,15 +163,18 @@ function buildActions(
       ];
     }
 
-    const weaponHeld = p.inventory
-      .filter((x) => x.kind === "weapon")
-      .reduce((s, w) => s + w.count, 0);
-
     const knowsExploreHeal = p.knownSpells.some(
       (s) => s === "heal_soft" || s === "heal_solid",
     );
 
-    const main: ActionEntry[] = [
+    const canDescend = game.stairsVisible && game.floor < 10;
+    const descendTitle = canDescend
+      ? "次の階へ進みます"
+      : game.floor >= 10
+        ? "ここが最下層です"
+        : "探索で階段を見つけると選べます";
+
+    return [
       {
         key: "explore",
         label: "探索する",
@@ -169,12 +182,12 @@ function buildActions(
       },
       {
         key: "items-open",
-        label: "調合・アイテム",
+        label: "調合アイテム",
         onActivate: () => setGame((g) => openItemsMenu(g)),
       },
       {
         key: "explore-magic-open",
-        label: "魔法（回復）",
+        label: "魔法",
         disabled: !knowsExploreHeal,
         title: knowsExploreHeal
           ? "探索中に回復魔法を唱えます"
@@ -192,21 +205,17 @@ function buildActions(
           }),
       },
       {
-        key: "discard-weapons",
-        label: "装備以外の武器を捨てる",
-        disabled: weaponHeld === 0,
-        title: "所持している武器だけをまとめて捨てます（装備中は残ります）",
-        onActivate: () => setGame((g) => discardInventoryWeapons(g)),
-      },
-    ];
-    if (game.stairsVisible && game.floor < 10) {
-      main.push({
         key: "descend",
         label: "階段を降りる",
-        onActivate: () => setGame((g) => descendStairs(g)),
-      });
-    }
-    return main;
+        disabled: !canDescend,
+        title: descendTitle,
+        onActivate: () =>
+          setGame((g) => {
+            if (!(g.stairsVisible && g.floor < 10)) return g;
+            return descendStairs(g);
+          }),
+      },
+    ];
   }
 
   if (!inCombat) return [];
@@ -404,6 +413,10 @@ export function HackAndSlashGame() {
   const p = game.player;
   const inCombat = game.phase === "combat" && game.enemy;
 
+  const compactExploreOrCombatMain =
+    (game.phase === "explore" && game.exploreMenu === "main") ||
+    (game.phase === "combat" && game.combatMenu === "main");
+
   const btnCore =
     "touch-manipulation select-none rounded border px-2 py-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-40 sm:px-3";
 
@@ -435,7 +448,10 @@ export function HackAndSlashGame() {
         "craft-mp-med",
       ]);
       const mainEntries = actions.filter(
-        (a) => itemKeys.has(a.key) || a.key.startsWith("explore-use-"),
+        (a) =>
+          itemKeys.has(a.key) ||
+          a.key.startsWith("explore-use-") ||
+          a.key === "discard-weapons",
       );
       const back = actions.find((a) => a.key === "back-items");
       const indexOf = (key: string) => actions.findIndex((a) => a.key === key);
@@ -515,15 +531,13 @@ export function HackAndSlashGame() {
       const exploreA = actions.find((a) => a.key === "explore");
       const itemsA = actions.find((a) => a.key === "items-open");
       const magicA = actions.find((a) => a.key === "explore-magic-open");
-      const discardA = actions.find((a) => a.key === "discard-weapons");
       const descendA = actions.find((a) => a.key === "descend");
-      if (!exploreA || !itemsA || !magicA || !discardA) return null;
+      if (!exploreA || !itemsA || !magicA || !descendA) return null;
 
-      const row: ActionEntry[] = [exploreA, itemsA, magicA, discardA];
-      if (descendA) row.push(descendA);
+      const row: ActionEntry[] = [exploreA, itemsA, magicA, descendA];
 
       return (
-        <div className="grid grid-cols-2 gap-2" role="group" aria-label="行動">
+        <div className="grid grid-cols-2 grid-rows-2 gap-2" role="group" aria-label="行動">
           {row.map((a) => {
             const i = actions.indexOf(a);
             return (
@@ -543,9 +557,6 @@ export function HackAndSlashGame() {
               </button>
             );
           })}
-          {row.length % 2 === 1 ? (
-            <div className="min-h-[48px] sm:min-h-0" aria-hidden />
-          ) : null}
         </div>
       );
     }
@@ -764,6 +775,10 @@ export function HackAndSlashGame() {
                 <ul className="list-disc space-y-1 pl-4 text-sm">
                   <li>キーボード：矢印で選択、Enter か Space で決定</li>
                   <li>スマホ：ボタンをタップ（選択と実行が同時になります）</li>
+                  <li>
+                    探索の行動は常に 2×2 の 4
+                    つ（探索／調合アイテム／魔法／階段）。武器の一括捨ては「調合アイテム」内です。
+                  </li>
                 </ul>
               </section>
               <section>
@@ -862,7 +877,7 @@ export function HackAndSlashGame() {
 
       <section
         ref={logWrapRef}
-        className="min-h-0 max-sm:min-h-[min(46dvh,22rem)] flex-1 overflow-y-auto rounded border border-[var(--border)] bg-[var(--panel)] px-3 py-2"
+        className="min-h-0 max-sm:min-h-[min(46dvh,22rem)] flex-1 touch-manipulation overflow-y-auto rounded border border-[var(--border)] bg-[var(--panel)] px-3 py-2"
         aria-label="探索・戦闘ログ"
       >
         <ul className="space-y-1.5 text-sm leading-relaxed text-[var(--text)]">
@@ -879,9 +894,16 @@ export function HackAndSlashGame() {
         className="mt-3 shrink-0 space-y-2"
         aria-label="操作"
       >
-        <p className="text-xs text-[var(--muted)]">行動</p>
-        {/* 探索・戦闘の基本メニューは 2×2。サブメニュー時は可変 */}
-        <div className="min-h-[7.25rem] content-start sm:min-h-0">
+        <p className="h-4 shrink-0 text-xs leading-4 text-[var(--muted)]">
+          行動
+        </p>
+        <div
+          className={
+            compactExploreOrCombatMain
+              ? "h-[104px] shrink-0 overflow-hidden"
+              : "max-h-[min(50dvh,20rem)] min-h-[104px] shrink-0 overflow-y-auto overscroll-y-contain"
+          }
+        >
           {renderButtons()}
         </div>
       </nav>
