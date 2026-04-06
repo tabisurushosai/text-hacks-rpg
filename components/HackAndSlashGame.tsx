@@ -845,6 +845,14 @@ export function HackAndSlashGame() {
               </section>
               <section>
                 <h3 className="mb-1 text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
+                  戦闘に勝ったあと
+                </h3>
+                <p className="text-sm">
+                  ログの末尾付近に「戦闘後: HP … MP …」と、数値だけを一行記録します（装備・ドロップの処理のあと）。
+                </p>
+              </section>
+              <section>
+                <h3 className="mb-1 text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
                   BGM
                 </h3>
                 <p className="text-sm">

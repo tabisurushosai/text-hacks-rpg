@@ -947,6 +947,10 @@ function endCombatVictory(state: GameState, lines: string[]): GameState {
     player = rollBossLoot(player, lines);
   }
 
+  lines.push(
+    `戦闘後: HP ${player.hp}/${player.maxHp}、MP ${player.mp}/${player.maxMp}。`,
+  );
+
   return {
     ...state,
     phase: wasBoss ? "cleared" : "explore",
