@@ -546,7 +546,6 @@ export function explore(state: GameState): GameState {
       combatMenu: "main",
       exploreMenu: "main",
       bossCombatTurns: 0,
-      combatWeaknessRevealed: undefined,
       totalBattlesFought: state.totalBattlesFought + 1,
       log: [...state.log, ...lines],
     };
@@ -564,7 +563,6 @@ export function explore(state: GameState): GameState {
       combatMenu: "main",
       exploreMenu: "main",
       bossCombatTurns: 0,
-      combatWeaknessRevealed: undefined,
       totalBattlesFought: state.totalBattlesFought + 1,
       log: [...state.log, ...lines],
     };
@@ -691,7 +689,6 @@ export function descendStairs(state: GameState): GameState {
       combatMenu: "main",
       exploreMenu: "main",
       bossCombatTurns: 0,
-      combatWeaknessRevealed: undefined,
       totalBattlesFought: state.totalBattlesFought + 1,
       log: [...state.log, ...lines],
     };
@@ -967,7 +964,6 @@ function endCombatVictory(state: GameState, lines: string[]): GameState {
     combatMenu: "main",
     bossCombatTurns: 0,
     bossDefeated: wasBoss ? true : state.bossDefeated,
-    combatWeaknessRevealed: undefined,
     player,
     log: [...state.log, ...lines],
   };
@@ -1111,16 +1107,12 @@ export function combatMagic(state: GameState, spell: SpellId): GameState {
     job: s.job,
   });
 
-  const combatWeaknessRevealed =
-    result.weaknessRevealed ?? s.combatWeaknessRevealed;
-
   if (result.enemy.hp <= 0) {
     return endCombatVictory(
       {
         ...s,
         player: result.player,
         enemy: result.enemy,
-        combatWeaknessRevealed,
       },
       result.lines,
     );
@@ -1134,7 +1126,6 @@ export function combatMagic(state: GameState, spell: SpellId): GameState {
     player: result.player,
     enemy: bossed,
     combatMenu: "main",
-    combatWeaknessRevealed,
     log: [...s.log, ...result.lines],
   };
   return enemyTurn(next, []);
@@ -1298,7 +1289,6 @@ export function combatRun(state: GameState): GameState {
       enemy: null,
       combatMenu: "main",
       bossCombatTurns: 0,
-      combatWeaknessRevealed: undefined,
       player: { ...s.player, hp: nh, mp: nm },
       log: [...s.log, ...lines],
     };

@@ -164,9 +164,6 @@ export function TitleScreen({ onEnter }: TitleScreenProps) {
             role="group"
             aria-label="職の選択"
           >
-            <p className="text-center font-sans text-sm text-[var(--muted)]">
-              職を選んでください（戦闘の与ダメに反映されます）
-            </p>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               {JOB_ORDER.map((id) => (
                 <button
@@ -184,14 +181,10 @@ export function TitleScreen({ onEnter }: TitleScreenProps) {
                 </button>
               ))}
             </div>
-            <p className="mt-4 text-center font-sans text-[11px] leading-snug text-[var(--muted)]">
-              綴りの上位版（業火・凍嵐・落雷・大癒など）は 6
-              階以降のドロップに混ざります。
-            </p>
             <button
               type="button"
               onClick={() => setStep("title")}
-              className="touch-manipulation mt-3 w-full rounded border border-[var(--border)] bg-[#15221c]/80 px-4 py-3 font-sans text-sm text-[var(--muted)] transition hover:border-[var(--accent)] hover:text-[var(--text)]"
+              className="touch-manipulation mt-4 w-full rounded border border-[var(--border)] bg-[#15221c]/80 px-4 py-3 font-sans text-sm text-[var(--muted)] transition hover:border-[var(--accent)] hover:text-[var(--text)]"
             >
               戻る
             </button>

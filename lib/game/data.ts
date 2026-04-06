@@ -262,12 +262,6 @@ export const SPELL_ELEMENT: Partial<Record<SpellId, SpellElement>> = {
   volt_chain: "thunder",
 };
 
-export const SPELL_ELEMENT_LABEL: Record<SpellElement, string> = {
-  fire: "炎",
-  ice: "氷",
-  thunder: "雷",
-};
-
 /** 戦闘「魔法」メニュー：攻撃系の並び */
 const COMBAT_ATTACK_SPELLS: SpellId[] = [
   "fire_jolt",

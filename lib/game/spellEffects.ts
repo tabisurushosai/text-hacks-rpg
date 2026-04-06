@@ -7,13 +7,7 @@ import {
   jobPhysicalMul,
 } from "./balance";
 import { SPELL_ELEMENT } from "./data";
-import type {
-  EnemyInstance,
-  JobId,
-  Player,
-  SpellElement,
-  SpellId,
-} from "./types";
+import type { EnemyInstance, JobId, Player, SpellId } from "./types";
 
 function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n));
@@ -53,19 +47,15 @@ function applyElementalMagicDamage(
   spell: SpellId,
   rawDmg: number,
   job: JobId,
-): SpellElement | undefined {
+): void {
   let dmg = Math.max(1, Math.floor(rawDmg * jobOffensiveMagicMul(job)));
   const el = SPELL_ELEMENT[spell];
   if (el && enemy.weakness === el) {
     dmg = Math.floor(dmg * 1.52);
     lines.push("弱点を突いた！");
-    enemy.hp = clamp(enemy.hp - dmg, 0, enemy.maxHp);
-    lines.push(`${dmg}のダメージ。`);
-    return el;
   }
   enemy.hp = clamp(enemy.hp - dmg, 0, enemy.maxHp);
   lines.push(`${dmg}のダメージ。`);
-  return undefined;
 }
 
 function tryApplyStun(
@@ -109,7 +99,6 @@ export type CombatSpellResult = {
   lines: string[];
   player: Player;
   enemy: EnemyInstance;
-  weaknessRevealed?: SpellElement;
 };
 
 /**
@@ -123,11 +112,6 @@ export function runCombatSpell(
   let player = ctx.player;
   const enemy = { ...ctx.enemy };
   const { floor, lv, job } = ctx;
-  let weaknessRevealed: SpellElement | undefined;
-
-  const pushWeakness = (el: SpellElement | undefined) => {
-    if (el) weaknessRevealed = el;
-  };
 
   switch (spell) {
     case "fire_jolt": {
@@ -139,9 +123,7 @@ export function runCombatSpell(
       const pierce = Math.floor(enemy.def * 0.42);
       const dmg = Math.max(2, raw - pierce);
       lines.push("火矢を放った。");
-      pushWeakness(
-        applyElementalMagicDamage(lines, enemy, spell, dmg, job),
-      );
+      applyElementalMagicDamage(lines, enemy, spell, dmg, job);
       break;
     }
     case "fire_blast": {
@@ -152,9 +134,7 @@ export function runCombatSpell(
         Math.floor(floor * 0.52);
       const dmg = Math.max(4, raw);
       lines.push("業火が敵を包んだ。");
-      pushWeakness(
-        applyElementalMagicDamage(lines, enemy, spell, dmg, job),
-      );
+      applyElementalMagicDamage(lines, enemy, spell, dmg, job);
       break;
     }
     case "ice_shard": {
@@ -166,9 +146,7 @@ export function runCombatSpell(
       const pierce = Math.floor(enemy.def * 0.22);
       const dmg = Math.max(2, raw - pierce);
       lines.push("氷片を叩きつけた。");
-      pushWeakness(
-        applyElementalMagicDamage(lines, enemy, spell, dmg, job),
-      );
+      applyElementalMagicDamage(lines, enemy, spell, dmg, job);
       tryApplyStun(lines, enemy, 0.48, 2, 4, 0.24, 1);
       break;
     }
@@ -181,9 +159,7 @@ export function runCombatSpell(
       const pierce = Math.floor(enemy.def * 0.3);
       const dmg = Math.max(3, raw - pierce);
       lines.push("凍嵐を巻き起こした。");
-      pushWeakness(
-        applyElementalMagicDamage(lines, enemy, spell, dmg, job),
-      );
+      applyElementalMagicDamage(lines, enemy, spell, dmg, job);
       tryApplyStun(lines, enemy, 0.62, 2, 4, 0.32, 2);
       break;
     }
@@ -195,9 +171,7 @@ export function runCombatSpell(
         Math.floor(floor * 0.22);
       const dmg = Math.max(1, raw);
       lines.push("細い雷が刺さった。");
-      pushWeakness(
-        applyElementalMagicDamage(lines, enemy, spell, dmg, job),
-      );
+      applyElementalMagicDamage(lines, enemy, spell, dmg, job);
       tryApplyStun(lines, enemy, 0.74, 2, 4, 0.38, 1);
       break;
     }
@@ -209,9 +183,7 @@ export function runCombatSpell(
         Math.floor(floor * 0.38);
       const dmg = Math.max(2, raw);
       lines.push("落雷が走った。");
-      pushWeakness(
-        applyElementalMagicDamage(lines, enemy, spell, dmg, job),
-      );
+      applyElementalMagicDamage(lines, enemy, spell, dmg, job);
       tryApplyStun(lines, enemy, 0.86, 3, 4, 0.46, 2);
       break;
     }
@@ -243,9 +215,7 @@ export function runCombatSpell(
       const pierce = Math.floor(enemy.def * 0.35);
       const dmg = Math.max(2, raw - pierce);
       lines.push("魔力撃を放った。");
-      pushWeakness(
-        applyElementalMagicDamage(lines, enemy, spell, dmg, job),
-      );
+      applyElementalMagicDamage(lines, enemy, spell, dmg, job);
       break;
     }
     case "far_mud": {
@@ -256,9 +226,7 @@ export function runCombatSpell(
         Math.floor(floor * 0.2);
       const dmg = Math.max(1, raw);
       lines.push("泥を投げつけた。");
-      pushWeakness(
-        applyElementalMagicDamage(lines, enemy, spell, dmg, job),
-      );
+      applyElementalMagicDamage(lines, enemy, spell, dmg, job);
       tryApplyStun(lines, enemy, 0.55, 1, 3, 0.2, 1);
       break;
     }
@@ -303,7 +271,7 @@ export function runCombatSpell(
     }
   }
 
-  return { lines, player, enemy, weaknessRevealed };
+  return { lines, player, enemy };
 }
 
 /** 探索で唱えたときの効果（MP 消費後の player を渡す） */

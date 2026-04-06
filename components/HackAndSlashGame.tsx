@@ -3,11 +3,6 @@
 import { buildGameActions, type ActionEntry } from "@/components/buildGameActions";
 import { useGameBgm } from "@/components/GameBgmContext";
 import { JOB_META, JOB_ORDER, RUN_TARGET_MINUTES } from "@/lib/game/balance";
-import {
-  enemyFrozenLine,
-  enemyHpBandText,
-  weaknessKnownLine,
-} from "@/lib/game/combatSummary";
 import { expUntilLevelUp, initialGameState } from "@/lib/game/core";
 import { formatWeaponEquipLine, SPELLS } from "@/lib/game/data";
 import type { GameState, JobId, SpellId } from "@/lib/game/types";
@@ -22,10 +17,6 @@ import {
 /** クリア報酬（本作 BGM） */
 const CLEAR_BGM_DRIVE =
   "https://drive.google.com/drive/folders/1Tp3UyQZCMxpGfHYfC-gFw93FsOJm3I_V?usp=sharing";
-
-function formatStack(name: string, count: number): string {
-  return count > 1 ? `${name}×${count}` : name;
-}
 
 export function HackAndSlashGame({ job }: { job: JobId }) {
   const [game, setGame] = useState<GameState>(() => initialGameState(job));
@@ -130,13 +121,6 @@ export function HackAndSlashGame({ job }: { job: JobId }) {
 
   const p = game.player;
   const inCombat = game.phase === "combat" && game.enemy;
-  const combatEnemy = inCombat ? game.enemy : null;
-  const combatFrozenLine = combatEnemy
-    ? enemyFrozenLine(combatEnemy)
-    : null;
-  const combatWeaknessLine = combatEnemy
-    ? weaknessKnownLine(game.combatWeaknessRevealed)
-    : null;
 
   const compactExploreOrCombatMain =
     (game.phase === "explore" && game.exploreMenu === "main") ||
@@ -563,14 +547,6 @@ export function HackAndSlashGame({ job }: { job: JobId }) {
               </section>
               <section>
                 <h3 className="mb-1 text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
-                  戦闘の状況パネル
-                </h3>
-                <p className="text-sm">
-                  戦闘中、ログの上に敵名と体力の目安・拘束残り・一度でも弱点を突いたあとの属性メモが出ます。数値は伏せたまま、流れを追いやすくするためです。
-                </p>
-              </section>
-              <section>
-                <h3 className="mb-1 text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
                   層底の主（ボス）
                 </h3>
                 <p className="text-sm">
@@ -664,22 +640,6 @@ export function HackAndSlashGame({ job }: { job: JobId }) {
         </div>
       </header>
 
-      {combatEnemy ? (
-        <section
-          className="mb-2 shrink-0 rounded border border-[var(--border)] bg-[var(--panel)] px-3 py-2 text-xs leading-relaxed text-[var(--text)]"
-          aria-label="戦闘の状況"
-        >
-          <p className="font-medium text-[var(--text)]">{combatEnemy.name}</p>
-          <ul className="mt-1 list-none space-y-0.5 text-[var(--muted)]">
-            <li>{enemyHpBandText(combatEnemy)}</li>
-            {combatFrozenLine ? <li>{combatFrozenLine}</li> : null}
-            {combatWeaknessLine ? (
-              <li className="text-[var(--accent)]">{combatWeaknessLine}</li>
-            ) : null}
-          </ul>
-        </section>
-      ) : null}
-
       <section
         ref={logWrapRef}
         className="touch-scroll-y min-h-0 max-sm:min-h-[min(46dvh,22rem)] flex-1 overflow-y-auto rounded border border-[var(--border)] bg-[var(--panel)] px-3 py-2"
@@ -753,28 +713,6 @@ export function HackAndSlashGame({ job }: { job: JobId }) {
           <p>
             {p.weapon ? formatWeaponEquipLine(p.weapon) : "素手"}
           </p>
-        </div>
-        <div className="mt-2 text-[var(--text)]">
-          <p className="text-xs text-[var(--muted)]">習得魔法</p>
-          <p className="text-sm">
-            {p.knownSpells.length === 0
-              ? "なし"
-              : p.knownSpells.map((s) => SPELLS[s].label).join("、")}
-          </p>
-        </div>
-        <div className="mt-2 text-[var(--text)]">
-          <p className="text-xs text-[var(--muted)]">所持</p>
-          {p.inventory.length === 0 ? (
-            <p className="text-sm">なし</p>
-          ) : (
-            <ul
-              className={`mt-1 list-none space-y-0.5 text-sm leading-snug ${itemListScrollClass}`}
-            >
-              {p.inventory.map((it) => (
-                <li key={it.id}>{formatStack(it.name, it.count)}</li>
-              ))}
-            </ul>
-          )}
         </div>
       </section>
 

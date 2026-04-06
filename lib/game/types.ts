@@ -123,6 +123,4 @@ export interface GameState {
   bossCombatTurns: number;
   /** この周回で交戦を開始した回数（入り口リセットで0に戻る） */
   totalBattlesFought: number;
-  /** この戦闘で一度でも弱点を突いた属性（UI サマリ用。戦闘終了で消える） */
-  combatWeaknessRevealed?: SpellElement;
 }
