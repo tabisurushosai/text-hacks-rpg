@@ -5,6 +5,10 @@ import { useCallback, useEffect, useState } from "react";
 import { useGameBgm } from "@/components/GameBgmContext";
 import { JOB_META, JOB_ORDER } from "@/lib/game/balance";
 import type { JobId } from "@/lib/game/types";
+import {
+  AUTHOR_FEEDBACK_X_HANDLE,
+  AUTHOR_FEEDBACK_X_URL,
+} from "@/lib/siteMeta";
 
 const titleSerif = Noto_Serif_JP({
   weight: ["600", "900"],
@@ -223,6 +227,19 @@ export function TitleScreen({
             </button>
           </div>
         )}
+
+        <p className="mt-10 max-w-md font-sans text-[11px] leading-relaxed text-[var(--muted)]">
+          感想・不具合は{" "}
+          <a
+            href={AUTHOR_FEEDBACK_X_URL}
+            className="text-[var(--accent)] underline underline-offset-2 hover:text-[var(--text)]"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {AUTHOR_FEEDBACK_X_HANDLE}
+          </a>
+          （X）まで
+        </p>
       </div>
     </div>
   );

@@ -12,6 +12,7 @@
 | スタック | Next.js 15、React 19、Tailwind CSS v4、TypeScript |
 | リポジトリ | `https://github.com/tabisurushosai/text-hacks-rpg` |
 | ゲーム性 | テキストログ主体ハクスラ。探索・戦闘・10階ボス。周回型、**localStorage セーブ**あり |
+| フィードバック窓口 | X **[@tabisurushosai](https://x.com/tabisurushosai)**（コード上は `lib/siteMeta.ts` に定数） |
 
 ---
 
@@ -30,30 +31,43 @@
 | パス | 役割 |
 |------|------|
 | `app/page.tsx` | タイトル ↔ ゲーム切替、続きから、セーブ読み込み失敗時のメッセージ |
-| `components/HackAndSlashGame.tsx` | メイン UI（ログ、戦闘 HUD、ヘルプ、キーボード操作、aria-live） |
-| `components/buildGameActions.tsx` | 探索・戦闘の行動ボタン一覧を組み立て |
-| `components/TitleScreen.tsx` | タイトル・職選択（記録テキストは削除済み） |
+| `components/HackAndSlashGame.tsx` | メイン UI（ログ、戦闘 HUD、ヘルプ、キーボード、aria-live、クリア画面） |
+| `components/buildGameActions.tsx` | 探索・戦闘の行動ボタン一覧（`smith` 分解含む） |
+| `components/TitleScreen.tsx` | タイトル・職選択 |
 | `components/CombatHud.tsx` | 戦闘中の敵 HP バー・弱点・自分 HP/MP |
-| `lib/game/core.ts` | ゲーム進行の中心（探索・戦闘・死亡・勝利・クラフト等） |
-| `lib/game/types.ts` | `GameState`、`CombatMenu`、`SpellId` 等 |
-| `lib/game/data.ts` | 敵テンプレ、武器、呪文定義、`sortCombatAbilitiesForMenu` 等 |
+| `lib/siteMeta.ts` | 作者 X URL・@ ハンドル（フィードバック用の単一ソース） |
+| `lib/game/core.ts` | ゲーム進行の中心（探索・戦闘・宝箱・分解・クラフト等） |
+| `lib/game/types.ts` | `GameState`、`CombatMenu`、`ExploreMenu`（`smith` 含む）、`SpellId` 等 |
+| `lib/game/data.ts` | 敵テンプレ、武器・防具、呪文、`ENEMY_EXTRA_LOOT`、`rollLootQualityFlairLine` 等 |
+| `lib/game/runEpithet.ts` | クリア時の称号一行 |
 | `lib/game/balance.ts` | 職倍率、敵・ボス補正、`JOB_META` |
-| `lib/game/gameConfig.ts` | ドロップ率・武器 ATK 上限、`PERSISTENCE_KEYS`、セーブ版定数 |
-| `lib/game/combatMath.ts` | 物理/敵ダメ・レベルアップ処理（`core` とテストで共有） |
-| `lib/game/persistence.ts` | セーブ JSON、メタ記録、`tryLoadGameFromJson`、`clearMetaFromLocalStorage`（UI からは未使用） |
+| `lib/game/gameConfig.ts` | ドロップ率・装備上限、`PERSISTENCE_KEYS`、セーブ版定数 |
+| `lib/game/combatMath.ts` | 物理/敵ダメ・防具軽減・レベルアップ処理 |
+| `lib/game/persistence.ts` | セーブ JSON、メタ記録、`normalizeExploreMenu`（`smith`） |
 | `lib/game/spellEffects.ts` | 戦闘・探索での呪文効果 |
 | `lib/game/logLineTone.ts` | ログ行のトーン・行頭印（［傷］等） |
 | `lib/game/lore.ts` / `exploreFlavor.ts` | フレーバーテキスト |
 | `lib/bgm.ts` + `components/GameBgmContext.tsx` | BGM |
+| `docs/github-actions-ci.example.yml` | GitHub Actions 用 CI 定義のサンプル（`.github/workflows/ci.yml` にコピーして有効化） |
 
 ---
 
 ## 戦闘 UI の現状（重要）
 
 - **`CombatMenu`**: `"main" | "abilities" | "item"` のみ。
-- **メイン 2×2**: `戦う` | `スキル・魔法` | `道具` | `逃げる`（「その他」サブメニューは廃止済み）。
+- **メイン 2×2**: `戦う` | `スキル・魔法` | `道具` | `逃げる`。
 - **`abilities`**: 職スキル（【職】）→【攻撃魔法】→【回復魔法】の順で1リスト。
-- 古いセーブで `misc` / `skills` / `magic` が入っていても、`persistence` の `normalizeCombatMenu` で **`main` に落とす**。
+- 古いセーブで `misc` / `skills` / `magic` が入っていても、`normalizeCombatMenu` で **`main` に落とす**。
+
+---
+
+## 探索 UI
+
+- **`ExploreMenu`**: `"main" | "items" | "magic" | "smith"`。
+- **main**: 2×2（探索／調合アイテム／魔法／階段）。
+- **items**: 調合・所持品使用・分解へ・一括捨て。
+- **smith**: 武器・防具を素材に分解。
+- 古いセーブは `normalizeExploreMenu` で未知の値を **`main` に落とす**。
 
 ---
 
@@ -69,29 +83,31 @@
 ## 品質・テスト
 
 - `npm run build` — 本番ビルド＋型＋ ESLint（Next 組み込み）。
+- `npm run lint` — ESLint。
 - `npm test` — Vitest（`lib/**/*.test.ts`）。`vitest.config.ts` で `@/` エイリアスあり。
+- **GitHub Actions**（任意）: サンプルを `.github/workflows/ci.yml` に置くとリモートで同等チェック。
 
 ---
 
 ## 既知の注意
 
 - `clearMetaFromLocalStorage` は **エクスポートのみ**（タイトルからのリセット UI は削除済み）。必要ならタイトルに戻す。
-- ユーザーは以前「1 回でクリアまで」の難易調整に言及あり、**未着手の可能性**あり。
+- 難易の細かい調整は **プレイフィードバック待ち**の部分あり。
 
 ---
 
 ## 新チャット用・短い貼り付け文（コピペ用）
-
-以下を新しい AI 会話の最初に貼ると続きやすいです。
 
 ```
 プロジェクト: 層底譚（text-hacks-rpg）。Next.js 15 + React 19 + Tailwind v4。
 詳細はリポジトリの docs/HANDOFF.md を読んでから作業して。
 ゲームロジックは lib/game/、UI は components/ と app/page.tsx。
 戦闘メインは 2×2（戦う／スキル・魔法／道具／逃げる）。CombatMenu は main | abilities | item。
+ExploreMenu は main | items | magic | smith（分解）。
 返答は日本語。変更後は build と test を回して問題なければ commit & push。
+GitHub Actions を使う場合は docs/github-actions-ci.example.yml を参照。
 ```
 
 ---
 
-*最終更新: 会話内の実装に基づくメモ。大きな変更後はこのファイルも更新推奨。*
+*最終更新: README・HANDOFF・CI・フィードバック窓口の整理に合わせて更新。*

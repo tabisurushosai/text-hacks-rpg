@@ -13,6 +13,10 @@ import {
 } from "@/lib/game/data";
 import { logLinePrefix, logLineTone, logToneClass } from "@/lib/game/logLineTone";
 import {
+  AUTHOR_FEEDBACK_X_HANDLE,
+  AUTHOR_FEEDBACK_X_URL,
+} from "@/lib/siteMeta";
+import {
   persistMetaAfterBossClear,
   persistMetaAfterDeath,
   persistMetaRunStarted,
@@ -633,15 +637,16 @@ export function HackAndSlashGame({
           </a>
         </div>
         <p className="text-xs leading-relaxed text-[var(--muted)]">
-          作者へのフィードバックもお待ちしています →{" "}
+          感想・不具合の報告は X の{" "}
           <a
-            href="https://x.com/tabisurushosai"
+            href={AUTHOR_FEEDBACK_X_URL}
             className="text-[var(--text)] underline decoration-[var(--border)] underline-offset-2"
             target="_blank"
             rel="noopener noreferrer"
           >
-            @tabisurushosai（X）
+            {AUTHOR_FEEDBACK_X_HANDLE}
           </a>
+          まで（ポスト・リプライ可。検索でも @ から辿れます）
         </p>
         <button
           type="button"
@@ -798,7 +803,16 @@ export function HackAndSlashGame({
                   ドロップ・分解・称号
                 </h3>
                 <p className="text-sm">
-                  武器・防具を拾ったあと、たまに続けて品質の一文が付きます。敵の種類によっては薬草・魔力草・装備のドロップ率が少し変わります。調合アイテム画面の「分解」で、かばんの武器・防具を薬草・魔力草に還せます（数値が高いほど多め）。クリア時はログとクリア画面に、今回の周回向けの短い称号が一行付きます（タイトル画面には出ません）。
+                  武器・防具を拾ったあと、たまに続けて品質の一文が付きます。敵の種類によっては薬草・魔力草・装備のドロップ率が少し変わります。調合アイテム画面の「分解」で、かばんの武器・防具を薬草・魔力草に還せます（数値が高いほど多め）。クリア時はログとクリア画面に、今回の周回向けの短い称号が一行付きます（タイトル画面には出ません）。感想・不具合は X の{" "}
+                  <a
+                    href={AUTHOR_FEEDBACK_X_URL}
+                    className="text-[var(--accent)] underline underline-offset-2"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {AUTHOR_FEEDBACK_X_HANDLE}
+                  </a>
+                  まで。
                 </p>
               </section>
               <section>
@@ -991,12 +1005,13 @@ export function HackAndSlashGame({
 
       <footer className="mt-3 shrink-0 space-y-2 pb-[env(safe-area-inset-bottom)] text-center">
         <a
-          href="https://x.com/tabisurushosai"
+          href={AUTHOR_FEEDBACK_X_URL}
           className="text-xs text-[var(--muted)] underline decoration-[var(--border)] underline-offset-2 hover:text-[var(--text)]"
           target="_blank"
           rel="noopener noreferrer"
+          title="感想・不具合は X まで"
         >
-          @tabisurushosai
+          {AUTHOR_FEEDBACK_X_HANDLE}
         </a>
         <p
           className="text-[11px] leading-relaxed text-[var(--muted)] opacity-90"
