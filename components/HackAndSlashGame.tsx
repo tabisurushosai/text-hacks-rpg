@@ -126,6 +126,8 @@ export function HackAndSlashGame({ job }: { job: JobId }) {
     game.phase === "explore" && game.exploreMenu === "main";
   const compactCombatMain =
     game.phase === "combat" && game.combatMenu === "main";
+  const compactCombatMisc =
+    game.phase === "combat" && game.combatMenu === "misc";
 
   const btnCore =
     "touch-manipulation select-none rounded border px-2 py-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-40 sm:px-3";
@@ -282,23 +284,79 @@ export function HackAndSlashGame({ job }: { job: JobId }) {
     if (!inCombat) return null;
 
     if (game.combatMenu === "main") {
+      const fightA = actions.find((a) => a.key === "fight");
+      const skillsA = actions.find((a) => a.key === "skills-open");
+      const magicA = actions.find((a) => a.key === "magic-open");
+      const miscA = actions.find((a) => a.key === "misc-open");
+      if (!fightA || !skillsA || !magicA || !miscA) return null;
+
+      const row: ActionEntry[] = [fightA, skillsA, magicA, miscA];
+
       return (
-        <div className="grid grid-cols-2 gap-2" role="group" aria-label="戦闘コマンド">
-          {actions.map((a, i) => (
-            <button
-              key={a.key}
-              type="button"
-              className={btnClassGrid(i === selectedIndex)}
-              disabled={a.disabled}
-              aria-current={i === selectedIndex ? "true" : undefined}
-              onClick={() => {
-                setSelectedIndex(i);
-                if (!a.disabled) a.onActivate();
-              }}
-            >
-              {a.label}
-            </button>
-          ))}
+        <div
+          className="grid grid-cols-2 grid-rows-2 gap-2"
+          role="group"
+          aria-label="戦闘コマンド"
+        >
+          {row.map((a) => {
+            const i = actions.indexOf(a);
+            return (
+              <button
+                key={a.key}
+                type="button"
+                className={btnClassGrid(selectedIndex === i)}
+                disabled={a.disabled}
+                title={a.title}
+                aria-current={selectedIndex === i ? "true" : undefined}
+                onClick={() => {
+                  setSelectedIndex(i);
+                  if (!a.disabled) a.onActivate();
+                }}
+              >
+                {a.label}
+              </button>
+            );
+          })}
+        </div>
+      );
+    }
+
+    if (game.combatMenu === "misc") {
+      const itemA = actions.find((a) => a.key === "misc-item");
+      const runA = actions.find((a) => a.key === "misc-run");
+      const backA = actions.find((a) => a.key === "back-misc");
+      if (!itemA || !runA || !backA) return null;
+
+      const indexOf = (key: string) => actions.findIndex((a) => a.key === key);
+
+      const renderBtn = (a: ActionEntry, i: number) => (
+        <button
+          key={a.key}
+          type="button"
+          className={btnClassGrid(i === selectedIndex)}
+          disabled={a.disabled}
+          title={a.title}
+          aria-current={i === selectedIndex ? "true" : undefined}
+          onClick={() => {
+            setSelectedIndex(i);
+            if (!a.disabled) a.onActivate();
+          }}
+        >
+          {a.label}
+        </button>
+      );
+
+      return (
+        <div
+          className="grid grid-cols-2 gap-2"
+          role="group"
+          aria-label="その他（道具・逃走）"
+        >
+          {renderBtn(itemA, indexOf(itemA.key))}
+          {renderBtn(runA, indexOf(runA.key))}
+          <div className="col-span-2">
+            {renderBtn(backA, indexOf(backA.key))}
+          </div>
         </div>
       );
     }
@@ -531,6 +589,10 @@ export function HackAndSlashGame({ job }: { job: JobId }) {
                     探索の行動は常に 2×2 の 4
                     つ（探索／調合アイテム／魔法／階段）。武器の一括捨ては「調合アイテム」内です。
                   </li>
+                  <li>
+                    戦闘のメインも 2×2 の 4
+                    つ（戦う／スキル／魔法／その他）。道具と逃げるは「その他」から選びます。
+                  </li>
                 </ul>
               </section>
               <section>
@@ -672,8 +734,8 @@ export function HackAndSlashGame({ job }: { job: JobId }) {
           className={
             compactExploreMain
               ? "h-[104px] shrink-0 overflow-hidden"
-              : compactCombatMain
-                ? "h-[156px] shrink-0 overflow-hidden"
+              : compactCombatMain || compactCombatMisc
+                ? "h-[104px] shrink-0 overflow-hidden"
                 : "touch-scroll-y max-h-[min(50dvh,20rem)] min-h-[104px] shrink-0 overflow-y-auto overscroll-y-contain"
           }
         >

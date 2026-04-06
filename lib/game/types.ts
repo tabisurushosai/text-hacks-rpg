@@ -99,7 +99,7 @@ export interface EnemyInstance {
   bossMilestonesLogged?: number;
 }
 
-export type CombatMenu = "main" | "skills" | "magic" | "item";
+export type CombatMenu = "main" | "misc" | "skills" | "magic" | "item";
 
 export type GamePhase = "explore" | "combat" | "cleared";
 

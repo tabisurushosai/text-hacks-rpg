@@ -248,8 +248,24 @@ export function buildGameActions(
           }),
       },
       {
-        key: "item",
+        key: "misc-open",
+        label: "その他",
+        title: "道具の使用・逃走",
+        onActivate: () => setGame((g) => ({ ...g, combatMenu: "misc" })),
+      },
+    ];
+  }
+
+  if (game.combatMenu === "misc") {
+    return [
+      {
+        key: "misc-item",
         label: "道具",
+        disabled: p.inventory.length === 0,
+        title:
+          p.inventory.length === 0
+            ? "使える道具がない"
+            : "所持品を戦闘で使う",
         onActivate: () =>
           setGame((g) => {
             if (g.player.inventory.length === 0) {
@@ -259,9 +275,15 @@ export function buildGameActions(
           }),
       },
       {
-        key: "run",
+        key: "misc-run",
         label: "逃げる",
+        title: "戦闘から離脱を試みる",
         onActivate: () => setGame((g) => combatRun(g)),
+      },
+      {
+        key: "back-misc",
+        label: "戻る",
+        onActivate: () => setGame((g) => ({ ...g, combatMenu: "main" })),
       },
     ];
   }
@@ -335,7 +357,7 @@ export function buildGameActions(
       {
         key: "back-item",
         label: "戻る",
-        onActivate: () => setGame((g) => ({ ...g, combatMenu: "main" })),
+        onActivate: () => setGame((g) => ({ ...g, combatMenu: "misc" })),
       },
     ];
   }
