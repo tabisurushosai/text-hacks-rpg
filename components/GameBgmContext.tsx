@@ -87,7 +87,14 @@ type GameBgmContextValue = {
   bgmPlaying: boolean;
   bgmMissing: boolean;
   titleBgmDead: boolean;
+  /** タイトル BGM を鳴らす設定（初期 true。OFF で停止） */
+  titleBgmEnabled: boolean;
+  setTitleBgmEnabled: (on: boolean) => void;
+  /** タイトル表示中のみ。自動再生できず一定時間停止のとき true（LINE 内ブラウザ等） */
+  showTitleBgmHelp: boolean;
   toggleBgm: () => Promise<void>;
+  /** 探索／戦闘用 Audio を作り直し、ON なら今のフェーズの曲を再開 */
+  resetGameBgm: () => void;
   syncPhase: (phase: GamePhase) => void;
   tryPlayTitleBgm: () => void;
   startBgmExplore: () => Promise<void>;
@@ -103,11 +110,22 @@ export function useGameBgm(): GameBgmContextValue {
   return ctx;
 }
 
-export function GameBgmProvider({ children }: { children: ReactNode }) {
+type GameBgmProviderProps = {
+  children: ReactNode;
+  /** タイトル画面が前面のとき true（未指定は常に false 扱い） */
+  titleScreenActive?: boolean;
+};
+
+export function GameBgmProvider({
+  children,
+  titleScreenActive = false,
+}: GameBgmProviderProps) {
   const [bgmPlaying, setBgmPlaying] = useState(false);
   const [exploreBgmDead, setExploreBgmDead] = useState(false);
   const [combatBgmDead, setCombatBgmDead] = useState(false);
   const [titleBgmDead, setTitleBgmDead] = useState(false);
+  const [titleBgmEnabled, setTitleBgmEnabledState] = useState(true);
+  const [showTitleBgmHelp, setShowTitleBgmHelp] = useState(false);
   const [currentPhase, setCurrentPhase] = useState<GamePhase>("explore");
 
   const titleBgmRef = useRef<HTMLAudioElement | null>(null);
@@ -116,12 +134,23 @@ export function GameBgmProvider({ children }: { children: ReactNode }) {
   const gameBgmUnsubsRef = useRef<Array<() => void>>([]);
   const bgmPlayingRef = useRef(false);
   const gameBgmPlayIdRef = useRef(0);
+  const currentPhaseRef = useRef<GamePhase>("explore");
   bgmPlayingRef.current = bgmPlaying;
+  currentPhaseRef.current = currentPhase;
 
   const bgmMissing = exploreBgmDead && combatBgmDead;
 
-  const ensureGameBgmWired = useCallback(() => {
-    if (exploreBgmRef.current && combatBgmRef.current) return;
+  const disposeGameBgm = useCallback(() => {
+    gameBgmPlayIdRef.current += 1;
+    exploreBgmRef.current?.pause();
+    combatBgmRef.current?.pause();
+    for (const u of gameBgmUnsubsRef.current) u();
+    gameBgmUnsubsRef.current = [];
+    exploreBgmRef.current = null;
+    combatBgmRef.current = null;
+  }, []);
+
+  const wireGameBgmPair = useCallback(() => {
     const explore = createLoopingBgm({ preload: "auto" });
     const combat = createLoopingBgm({ preload: "auto" });
     exploreBgmRef.current = explore;
@@ -134,21 +163,20 @@ export function GameBgmProvider({ children }: { children: ReactNode }) {
         setCombatBgmDead(true),
       ),
     );
+    explore.load();
+    combat.load();
   }, []);
+
+  const ensureGameBgmWired = useCallback(() => {
+    if (exploreBgmRef.current && combatBgmRef.current) return;
+    wireGameBgmPair();
+  }, [wireGameBgmPair]);
 
   useEffect(() => {
     const title = createLoopingBgm({ preload: "auto" });
     titleBgmRef.current = title;
     const unsubTitle = wireTitle(title, () => setTitleBgmDead(true));
     title.load();
-
-    const kickTitle = () => {
-      void title.play().catch(() => {
-        /* 自動再生拒否・未バッファ */
-      });
-    };
-    kickTitle();
-    title.addEventListener("canplay", kickTitle, { once: true });
 
     return () => {
       unsubTitle();
@@ -162,6 +190,31 @@ export function GameBgmProvider({ children }: { children: ReactNode }) {
       combatBgmRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    if (!titleScreenActive || !titleBgmEnabled) {
+      setShowTitleBgmHelp(false);
+      return;
+    }
+    const title = titleBgmRef.current;
+    if (!title || titleBgmDead) {
+      setShowTitleBgmHelp(false);
+      return;
+    }
+
+    const onPlaying = () => setShowTitleBgmHelp(false);
+    title.addEventListener("playing", onPlaying);
+
+    const t = window.setTimeout(() => {
+      const el = titleBgmRef.current;
+      if (el?.paused) setShowTitleBgmHelp(true);
+    }, 1400);
+
+    return () => {
+      window.clearTimeout(t);
+      title.removeEventListener("playing", onPlaying);
+    };
+  }, [titleScreenActive, titleBgmDead, titleBgmEnabled]);
 
   const syncPhase = useCallback((phase: GamePhase) => {
     setCurrentPhase(phase);
@@ -179,6 +232,22 @@ export function GameBgmProvider({ children }: { children: ReactNode }) {
     }
   }, [titleBgmDead]);
 
+  const setTitleBgmEnabled = useCallback((on: boolean) => {
+    setTitleBgmEnabledState(on);
+    if (!on) {
+      const t = titleBgmRef.current;
+      if (t) {
+        t.pause();
+        t.currentTime = 0;
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!titleScreenActive || !titleBgmEnabled) return;
+    tryPlayTitleBgm();
+  }, [titleScreenActive, titleBgmEnabled, tryPlayTitleBgm]);
+
   const playGameTrack = useCallback((active: HTMLAudioElement) => {
     const id = ++gameBgmPlayIdRef.current;
     void active.play().catch((e: unknown) => {
@@ -187,6 +256,30 @@ export function GameBgmProvider({ children }: { children: ReactNode }) {
       setBgmPlaying(false);
     });
   }, []);
+
+  const resetGameBgm = useCallback(() => {
+    disposeGameBgm();
+    setExploreBgmDead(false);
+    setCombatBgmDead(false);
+    wireGameBgmPair();
+
+    const explore = exploreBgmRef.current;
+    const combat = combatBgmRef.current;
+    if (!explore || !combat) return;
+
+    if (!bgmPlayingRef.current) return;
+
+    const phase = currentPhaseRef.current;
+    const active = pickBgmForPhase(phase, false, false, explore, combat);
+    if (!active) {
+      setBgmPlaying(false);
+      return;
+    }
+    explore.pause();
+    combat.pause();
+    active.currentTime = 0;
+    playGameTrack(active);
+  }, [disposeGameBgm, wireGameBgmPair, playGameTrack]);
 
   const startBgmExplore = useCallback(async () => {
     ensureGameBgmWired();
@@ -298,7 +391,11 @@ export function GameBgmProvider({ children }: { children: ReactNode }) {
       bgmPlaying,
       bgmMissing,
       titleBgmDead,
+      titleBgmEnabled,
+      setTitleBgmEnabled,
+      showTitleBgmHelp,
       toggleBgm,
+      resetGameBgm,
       syncPhase,
       tryPlayTitleBgm,
       startBgmExplore,
@@ -307,7 +404,11 @@ export function GameBgmProvider({ children }: { children: ReactNode }) {
       bgmPlaying,
       bgmMissing,
       titleBgmDead,
+      titleBgmEnabled,
+      setTitleBgmEnabled,
+      showTitleBgmHelp,
       toggleBgm,
+      resetGameBgm,
       syncPhase,
       tryPlayTitleBgm,
       startBgmExplore,

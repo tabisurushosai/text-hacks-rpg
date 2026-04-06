@@ -15,16 +15,20 @@ type TitleScreenProps = {
 };
 
 export function TitleScreen({ onEnter }: TitleScreenProps) {
-  const { startBgmExplore, bgmMissing, tryPlayTitleBgm } = useGameBgm();
+  const {
+    startBgmExplore,
+    bgmMissing,
+    tryPlayTitleBgm,
+    showTitleBgmHelp,
+    titleBgmEnabled,
+    setTitleBgmEnabled,
+    titleBgmDead,
+  } = useGameBgm();
 
   const handleEnter = useCallback(async () => {
     await startBgmExplore();
     onEnter();
   }, [onEnter, startBgmExplore]);
-
-  useEffect(() => {
-    tryPlayTitleBgm();
-  }, [tryPlayTitleBgm]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -37,19 +41,26 @@ export function TitleScreen({ onEnter }: TitleScreenProps) {
       ) {
         return;
       }
-      tryPlayTitleBgm();
+      if (titleBgmEnabled) tryPlayTitleBgm();
       if (e.key !== "Enter") return;
       e.preventDefault();
       void handleEnter();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [handleEnter, tryPlayTitleBgm]);
+  }, [handleEnter, tryPlayTitleBgm, titleBgmEnabled]);
+
+  const btnBgm = [
+    "touch-manipulation rounded border px-4 py-3 font-sans text-sm font-medium transition",
+    "min-h-[48px] w-full sm:min-h-0",
+  ].join(" ");
 
   return (
     <div
       className={`relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden px-6 py-10 ${titleSerif.className}`}
-      onPointerDownCapture={() => tryPlayTitleBgm()}
+      onPointerDownCapture={() => {
+        if (titleBgmEnabled) tryPlayTitleBgm();
+      }}
     >
       {/* 奥行き：底へ沈むグラデーション */}
       <div
@@ -89,26 +100,64 @@ export function TitleScreen({ onEnter }: TitleScreenProps) {
         aria-hidden
       />
 
-      <div className="relative z-10 flex max-w-md flex-col items-center text-center">
+      <div className="relative z-10 flex max-w-lg flex-col items-center text-center">
         <p className="mb-3 font-sans text-[11px] tracking-[0.35em] text-[var(--muted)] uppercase">
           Text descent
         </p>
-        <h1 className="mb-10 text-[clamp(2.5rem,12vw,3.75rem)] font-black leading-none tracking-[0.02em] text-[var(--text)] drop-shadow-[0_0_40px_rgba(91,140,122,0.25)]">
+        <h1 className="mb-8 text-[clamp(2.5rem,12vw,3.75rem)] font-black leading-none tracking-[0.02em] text-[var(--text)] drop-shadow-[0_0_40px_rgba(91,140,122,0.25)]">
           層底譚
         </h1>
 
-        <button
-          type="button"
-          onClick={() => void handleEnter()}
-          className="group touch-manipulation rounded border border-[#3d5c52] bg-[#15221c]/90 px-8 py-3.5 text-base font-semibold tracking-wide text-[var(--text)] shadow-[0_0_24px_rgba(91,140,122,0.12)] transition hover:border-[var(--accent)] hover:bg-[#1a2e26] hover:shadow-[0_0_32px_rgba(91,140,122,0.22)] active:scale-[0.99]"
+        <div
+          className="grid w-full max-w-lg grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-2"
+          role="group"
+          aria-label="タイトル操作"
         >
-          ダンジョンに潜る
-        </button>
+          <button
+            type="button"
+            onClick={() => void handleEnter()}
+            className="touch-manipulation order-1 rounded border border-[#3d5c52] bg-[#15221c]/90 px-4 py-3 text-base font-semibold tracking-wide text-[var(--text)] shadow-[0_0_24px_rgba(91,140,122,0.12)] transition hover:border-[var(--accent)] hover:bg-[#1a2e26] hover:shadow-[0_0_32px_rgba(91,140,122,0.22)] active:scale-[0.99] sm:order-none sm:min-h-[4.5rem]"
+          >
+            冒険を始める
+          </button>
+          <button
+            type="button"
+            disabled={titleBgmDead}
+            aria-pressed={titleBgmEnabled}
+            onClick={() => setTitleBgmEnabled(true)}
+            className={`${btnBgm} order-2 border-[#3d5c52] sm:order-none ${
+              titleBgmEnabled
+                ? "bg-[#1a2e26] text-[var(--text)] ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-[#080c10]"
+                : "border-[var(--border)] bg-[#15221c]/80 text-[var(--muted)] hover:border-[var(--accent)] hover:text-[var(--text)]"
+            } disabled:cursor-not-allowed disabled:opacity-40`}
+          >
+            タイトルBGM ON
+          </button>
+          <button
+            type="button"
+            aria-pressed={!titleBgmEnabled}
+            onClick={() => setTitleBgmEnabled(false)}
+            className={`${btnBgm} order-3 border-[var(--border)] bg-[#15221c]/80 text-[var(--muted)] hover:border-[var(--accent)] hover:text-[var(--text)] sm:order-none ${
+              !titleBgmEnabled
+                ? "ring-2 ring-[var(--border)] ring-offset-2 ring-offset-[#080c10]"
+                : ""
+            }`}
+          >
+            タイトルBGM OFF
+          </button>
+        </div>
+
+        {showTitleBgmHelp ? (
+          <p className="mt-6 max-w-sm font-sans text-[11px] leading-relaxed text-[var(--muted)]">
+            LINE などでは自動再生が止まることがあります。「タイトルBGM
+            ON」を押すか、画面をタップしてください。
+          </p>
+        ) : null}
 
         <p className="mt-8 font-sans text-[11px] text-[var(--muted)] opacity-80">
           {bgmMissing
             ? "本編: explore.mp3 と combat.mp3（または theme）を public/bgm に"
-            : "Enter でも潜れる · 本編の BGM は画面右上から停止できます"}
+            : "初期状態はタイトルBGM ON · Enter でも冒険を始められます"}
         </p>
       </div>
     </div>
