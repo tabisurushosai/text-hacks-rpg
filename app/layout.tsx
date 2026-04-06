@@ -20,6 +20,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja">
+      <head>
+        <link rel="preload" href="/bgm/title.mp3" as="audio" />
+      </head>
       <body className="min-h-screen antialiased">{children}</body>
     </html>
   );

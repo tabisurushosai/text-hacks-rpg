@@ -38,20 +38,58 @@ function pickBgmForPhase(
   return null;
 }
 
+/** 別トラックへ切り替える直前の pause で中断された play() の拒否 */
+function isPlayInterruptedError(e: unknown): boolean {
+  return e instanceof DOMException && e.name === "AbortError";
+}
+
+function wireExploreOrCombat(
+  audio: HTMLAudioElement,
+  primary: string,
+  onFinalFail: () => void,
+) {
+  let step = 0;
+  audio.src = primary;
+  const onError = () => {
+    if (step === 0) {
+      step = 1;
+      audio.src = BGM_PATHS.theme;
+      audio.load();
+    } else {
+      onFinalFail();
+    }
+  };
+  audio.addEventListener("error", onError);
+  return () => audio.removeEventListener("error", onError);
+}
+
+function wireTitle(audio: HTMLAudioElement, onFinalFail: () => void) {
+  let step = 0;
+  audio.src = BGM_PATHS.title;
+  const onError = () => {
+    if (step === 0) {
+      step = 1;
+      audio.src = BGM_PATHS.theme;
+      audio.load();
+    } else if (step === 1) {
+      step = 2;
+      audio.src = BGM_PATHS.explore;
+      audio.load();
+    } else {
+      onFinalFail();
+    }
+  };
+  audio.addEventListener("error", onError);
+  return () => audio.removeEventListener("error", onError);
+}
+
 type GameBgmContextValue = {
   bgmPlaying: boolean;
-  /** 本編の探索／戦闘用。両方読めないとき true */
   bgmMissing: boolean;
-  /** タイトル専用要素が title→theme→explore まで全部失敗 */
   titleBgmDead: boolean;
   toggleBgm: () => Promise<void>;
   syncPhase: (phase: GamePhase) => void;
-  /**
-   * タイトル BGM を再生。必ず同期的に呼ぶこと（ポインター／キー操作のスタック内）。
-   * 自動再生だけ試す場合も同関数でよいが、多くの環境ではユーザー操作が必要。
-   */
   tryPlayTitleBgm: () => void;
-  /** タイトルを止め、探索フェーズ向けトラックを再生（無ければ戦闘へフォールバック） */
   startBgmExplore: () => Promise<void>;
 };
 
@@ -75,75 +113,51 @@ export function GameBgmProvider({ children }: { children: ReactNode }) {
   const titleBgmRef = useRef<HTMLAudioElement | null>(null);
   const exploreBgmRef = useRef<HTMLAudioElement | null>(null);
   const combatBgmRef = useRef<HTMLAudioElement | null>(null);
+  const gameBgmUnsubsRef = useRef<Array<() => void>>([]);
   const bgmPlayingRef = useRef(false);
+  const gameBgmPlayIdRef = useRef(0);
   bgmPlayingRef.current = bgmPlaying;
 
   const bgmMissing = exploreBgmDead && combatBgmDead;
 
-  useEffect(() => {
-    const title = createLoopingBgm({ preload: "auto" });
-    const explore = createLoopingBgm();
-    const combat = createLoopingBgm();
-    titleBgmRef.current = title;
+  const ensureGameBgmWired = useCallback(() => {
+    if (exploreBgmRef.current && combatBgmRef.current) return;
+    const explore = createLoopingBgm({ preload: "auto" });
+    const combat = createLoopingBgm({ preload: "auto" });
     exploreBgmRef.current = explore;
     combatBgmRef.current = combat;
-
-    function wireExploreOrCombat(
-      audio: HTMLAudioElement,
-      primary: string,
-      onFinalFail: () => void,
-    ) {
-      let step = 0;
-      audio.src = primary;
-      const onError = () => {
-        if (step === 0) {
-          step = 1;
-          audio.src = BGM_PATHS.theme;
-          audio.load();
-        } else {
-          onFinalFail();
-        }
-      };
-      audio.addEventListener("error", onError);
-      return () => audio.removeEventListener("error", onError);
-    }
-
-    function wireTitle(audio: HTMLAudioElement, onFinalFail: () => void) {
-      let step = 0;
-      audio.src = BGM_PATHS.title;
-      const onError = () => {
-        if (step === 0) {
-          step = 1;
-          audio.src = BGM_PATHS.theme;
-          audio.load();
-        } else if (step === 1) {
-          step = 2;
-          audio.src = BGM_PATHS.explore;
-          audio.load();
-        } else {
-          onFinalFail();
-        }
-      };
-      audio.addEventListener("error", onError);
-      return () => audio.removeEventListener("error", onError);
-    }
-
-    const unsubs = [
-      wireTitle(title, () => setTitleBgmDead(true)),
+    gameBgmUnsubsRef.current.push(
       wireExploreOrCombat(explore, BGM_PATHS.explore, () =>
         setExploreBgmDead(true),
       ),
       wireExploreOrCombat(combat, BGM_PATHS.combat, () =>
         setCombatBgmDead(true),
       ),
-    ];
+    );
+  }, []);
+
+  useEffect(() => {
+    const title = createLoopingBgm({ preload: "auto" });
+    titleBgmRef.current = title;
+    const unsubTitle = wireTitle(title, () => setTitleBgmDead(true));
+    title.load();
+
+    const kickTitle = () => {
+      void title.play().catch(() => {
+        /* 自動再生拒否・未バッファ */
+      });
+    };
+    kickTitle();
+    title.addEventListener("canplay", kickTitle, { once: true });
 
     return () => {
-      for (const u of unsubs) u();
+      unsubTitle();
       title.pause();
-      explore.pause();
-      combat.pause();
       titleBgmRef.current = null;
+      for (const u of gameBgmUnsubsRef.current) u();
+      gameBgmUnsubsRef.current = [];
+      exploreBgmRef.current?.pause();
+      combatBgmRef.current?.pause();
       exploreBgmRef.current = null;
       combatBgmRef.current = null;
     };
@@ -157,9 +171,7 @@ export function GameBgmProvider({ children }: { children: ReactNode }) {
     const title = titleBgmRef.current;
     if (!title || titleBgmDead) return;
     const go = () => {
-      void title.play().catch(() => {
-        /* 未ロード・自動再生拒否など */
-      });
+      void title.play().catch(() => {});
     };
     go();
     if (title.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) {
@@ -167,7 +179,17 @@ export function GameBgmProvider({ children }: { children: ReactNode }) {
     }
   }, [titleBgmDead]);
 
+  const playGameTrack = useCallback((active: HTMLAudioElement) => {
+    const id = ++gameBgmPlayIdRef.current;
+    void active.play().catch((e: unknown) => {
+      if (gameBgmPlayIdRef.current !== id) return;
+      if (isPlayInterruptedError(e)) return;
+      setBgmPlaying(false);
+    });
+  }, []);
+
   const startBgmExplore = useCallback(async () => {
+    ensureGameBgmWired();
     const explore = exploreBgmRef.current;
     const combat = combatBgmRef.current;
     const title = titleBgmRef.current;
@@ -185,20 +207,25 @@ export function GameBgmProvider({ children }: { children: ReactNode }) {
     );
     if (!active) return;
     active.currentTime = 0;
+    const id = ++gameBgmPlayIdRef.current;
     try {
       await active.play();
+      if (gameBgmPlayIdRef.current !== id) return;
       setBgmPlaying(true);
-    } catch {
-      setBgmPlaying(false);
+    } catch (e) {
+      if (gameBgmPlayIdRef.current !== id) return;
+      if (!isPlayInterruptedError(e)) setBgmPlaying(false);
     }
-  }, [exploreBgmDead, combatBgmDead]);
+  }, [ensureGameBgmWired, exploreBgmDead, combatBgmDead]);
 
   const toggleBgm = useCallback(async () => {
+    ensureGameBgmWired();
     const explore = exploreBgmRef.current;
     const combat = combatBgmRef.current;
     const title = titleBgmRef.current;
     if (!explore || !combat || bgmMissing) return;
     if (bgmPlaying) {
+      gameBgmPlayIdRef.current += 1;
       explore.pause();
       combat.pause();
       title?.pause();
@@ -217,13 +244,17 @@ export function GameBgmProvider({ children }: { children: ReactNode }) {
     explore.pause();
     combat.pause();
     active.currentTime = 0;
+    const id = ++gameBgmPlayIdRef.current;
     try {
       await active.play();
+      if (gameBgmPlayIdRef.current !== id) return;
       setBgmPlaying(true);
-    } catch {
-      setBgmPlaying(false);
+    } catch (e) {
+      if (gameBgmPlayIdRef.current !== id) return;
+      if (!isPlayInterruptedError(e)) setBgmPlaying(false);
     }
   }, [
+    ensureGameBgmWired,
     bgmMissing,
     bgmPlaying,
     combatBgmDead,
@@ -233,6 +264,7 @@ export function GameBgmProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!bgmPlayingRef.current) return;
+    ensureGameBgmWired();
     const explore = exploreBgmRef.current;
     const combat = combatBgmRef.current;
     const title = titleBgmRef.current;
@@ -252,8 +284,14 @@ export function GameBgmProvider({ children }: { children: ReactNode }) {
       return;
     }
     active.currentTime = 0;
-    void active.play().catch(() => setBgmPlaying(false));
-  }, [currentPhase, exploreBgmDead, combatBgmDead]);
+    playGameTrack(active);
+  }, [
+    currentPhase,
+    exploreBgmDead,
+    combatBgmDead,
+    ensureGameBgmWired,
+    playGameTrack,
+  ]);
 
   const value = useMemo(
     () => ({
