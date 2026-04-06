@@ -5,6 +5,16 @@ export const metadata: Metadata = {
   title: "層底譚 — Text Descent",
   description:
     "一行ずつ選び階を下りる、ブラウザで遊べるテキスト主体のハクスラRPG",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
+    apple: [{ url: "/icon.svg", type: "image/svg+xml" }],
+  },
+  appleWebApp: {
+    capable: true,
+    title: "層底譚",
+    statusBarStyle: "black-translucent",
+  },
 };
 
 export const viewport: Viewport = {

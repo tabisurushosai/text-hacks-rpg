@@ -1,14 +1,21 @@
 import type { GameState } from "./types";
+import {
+  LORE_DESCENDER_ABYSS,
+  LORE_DESCENDER_DEEP,
+  LORE_DESCENDER_MID,
+  LORE_DESCENDER_SHALLOW,
+  tierForFloor,
+} from "./lore";
 
-function tier(floor: number): "shallow" | "mid" | "deep" {
-  if (floor <= 3) return "shallow";
-  if (floor <= 6) return "mid";
-  return "deep";
-}
-
-/** 何も起きない系の短文（階層の空気感） */
+/** 何も起きない系の短文（階層の空気感＋降り手社会の軸語彙） */
 export function flavorQuiet(state: GameState): string[] {
-  const t = tier(state.floor);
+  const t = tierForFloor(state.floor);
+  const desc =
+    t === "shallow"
+      ? LORE_DESCENDER_SHALLOW
+      : t === "mid"
+        ? LORE_DESCENDER_MID
+        : LORE_DESCENDER_DEEP;
   const common = [
     "風の音だけが聞こえる。",
     "足元に小石が転がっている。",
@@ -26,7 +33,7 @@ export function flavorQuiet(state: GameState): string[] {
       "階段の向こうに、わずかな光が差している。",
       "落ちた「綴り」の欠片を踏んだ。誰かの魔法の残骸だ。",
       "燈台看守の印らしい刻み。もう誰もいない。",
-      "表の世界では、ここを「ただの穴」と呼ぶ者もいる。",
+      ...desc,
     ];
   }
   if (t === "mid") {
@@ -42,6 +49,7 @@ export function flavorQuiet(state: GameState): string[] {
       "「降り手」と呼ばれた者たちの名が、壁に削られている。",
       "綴りを集める習慣は、ここでは生存術だったらしい。",
       "層底へ続く道は、誰かが意図的に短くしたようにも見える。",
+      ...desc,
     ];
   }
   return [
@@ -56,12 +64,19 @@ export function flavorQuiet(state: GameState): string[] {
     "燈が一つ、また一つと消えていく。見ないふりをした。",
     "盟約の外では、死も契約も意味を失うと古い文にあった。",
     "深い階ほど、壁の文字が「君」へ語りかけてくる気がする。",
+    ...desc,
   ];
 }
 
 /** 小イベント（ダメージ・取得なしの描写） */
 export function flavorAmbientDetail(state: GameState): string[] {
-  const t = tier(state.floor);
+  const t = tierForFloor(state.floor);
+  const desc =
+    t === "shallow"
+      ? LORE_DESCENDER_SHALLOW
+      : t === "mid"
+        ? LORE_DESCENDER_MID
+        : LORE_DESCENDER_DEEP;
   const base = [
     "壁に文字がある。読めない。",
     "冷たい風が抜けた。",
@@ -81,6 +96,7 @@ export function flavorAmbientDetail(state: GameState): string[] {
       "小さな祭壇。花は枯れ、石だけが残っている。",
       "折れた燈芯。まだ油の匂いがする。",
       "「下へ」だけが読める標。筆跡は三つ、重なっている。",
+      ...desc,
     ];
   }
   if (t === "mid") {
@@ -92,6 +108,7 @@ export function flavorAmbientDetail(state: GameState): string[] {
       "焼け焦げた綴りの束。ページは空だ。",
       "盟約の印が床に焼き付いている。踏まないようにした。",
       "古い歌の一節が頭に浮かんだ。誰が教えたのか思い出せない。",
+      ...desc,
     ];
   }
   return [
@@ -102,6 +119,7 @@ export function flavorAmbientDetail(state: GameState): string[] {
     "層底の主を名指しで呼ぶと、どうなるか——誰も書いていない。",
     "深層の燈は、外の星とは逆方向に動いているという。",
     "欠けた杯に、まだ「降り」の酒の匂いが残っていた。",
+    ...desc,
   ];
 }
 
@@ -120,5 +138,6 @@ export function flavorAbyssCalm(): string[] {
     "盟約は破れた。代わりに、あなただけが覚えている。",
     "層底はもう「場所」ではなく、あなたの中の一語になった。",
     "燈はすべて消えた。それでも道は分かる。",
+    ...LORE_DESCENDER_ABYSS,
   ];
 }

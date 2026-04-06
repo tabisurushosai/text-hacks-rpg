@@ -33,6 +33,7 @@ import {
   flavorAbyssCalm,
   flavorQuiet,
 } from "./exploreFlavor";
+import { LORE_INTRO_DESCENDER } from "./lore";
 import type {
   EnemyInstance,
   GameState,
@@ -179,14 +180,33 @@ export function initialGameState(): GameState {
     log: [
       "ダンジョンの入り口にいる。",
       "下へ続く気配がある。",
+      LORE_INTRO_DESCENDER,
       "古い地図では、最下層だけが「層底」とだけ書かれていた。",
       "迷ったら画面右上の「？」で用語と操作のメモを開ける。",
     ],
   };
 }
 
-function resetToEntrance(prevLog: string[]): GameState {
+function deathHintAfterCombat(state: GameState): string | null {
+  if (state.phase !== "combat" || !state.enemy) return null;
+  const e = state.enemy;
+  const pl = state.player;
+  if (e.isBoss) {
+    const r = e.hp / e.maxHp;
+    if (r > 0 && r <= BOSS_ENRAGE_HP_RATIO) {
+      return "【手がかり】主は傷つくほど一撃が重い。回復と拘束でリズムを崩さないよう工夫できる。";
+    }
+    return "【手がかり】主は炎・氷・雷のいずれかに弱いことがある。「弱点を突いた」のログを振り返ろう。";
+  }
+  if (pl.mp <= Math.max(2, Math.floor(pl.maxMp * 0.18))) {
+    return "【手がかり】MPが乏しかった。探索での回復魔法や調合で、戦闘前の余白を増やせる。";
+  }
+  return "【手がかり】武器の攻撃力や特殊効果（吸命・心眼など）を見直し、落とし物を見逃していないか確かめよう。";
+}
+
+function resetToEntrance(prevLog: string[], hint?: string | null): GameState {
   const tail = [...prevLog, "力尽きた。", "気がつくと入り口にいた。"];
+  if (hint) tail.push(hint);
   return {
     ...initialGameState(),
     log: tail,
@@ -554,7 +574,10 @@ export function explore(state: GameState): GameState {
     const nh = clamp(state.player.hp - dmg, 0, state.player.maxHp);
     lines.push(`足を滑らせた。${dmg}のダメージ。`);
     if (nh <= 0) {
-      return resetToEntrance([...state.log, ...lines]);
+      return resetToEntrance(
+        [...state.log, ...lines],
+        "【手がかり】探索でのダメージも積み重なる。HPが低いときは回復してから動こう。",
+      );
     }
     return {
       ...state,
@@ -973,7 +996,10 @@ function enemyTurn(state: GameState, lines: string[]): GameState {
   const newHp = clamp(state.player.hp - dmg, 0, state.player.maxHp);
   lines.push(`${enemy.name}の攻撃。${dmg}のダメージ。`);
   if (newHp <= 0) {
-    return resetToEntrance([...state.log, ...lines]);
+    return resetToEntrance(
+      [...state.log, ...lines],
+      deathHintAfterCombat(state),
+    );
   }
   return {
     ...state,

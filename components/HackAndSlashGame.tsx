@@ -770,6 +770,25 @@ export function HackAndSlashGame() {
               </section>
               <section>
                 <h3 className="mb-1 text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
+                  推奨環境
+                </h3>
+                <p className="text-sm">
+                  本番に近い体験は PC
+                  のブラウザ向けです。スマホではホーム画面に追加してスタンドアロン表示すると、操作と
+                  BGM が安定しやすいです。LINE
+                  内のブラウザは友達への共有用で、将来は主な対象外にする予定です。
+                </p>
+              </section>
+              <section>
+                <h3 className="mb-1 text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
+                  世界観の軸
+                </h3>
+                <p className="text-sm">
+                  階を下りて生計を立てる人々は「降り手」と呼ばれ、盟約・記録院・燈台・通行といった社会の痕跡が探索ログに現れます。アップデートで同じ語が再び出ると、意味が重なっていきます。
+                </p>
+              </section>
+              <section>
+                <h3 className="mb-1 text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
                   操作
                 </h3>
                 <ul className="list-disc space-y-1 pl-4 text-sm">
@@ -821,7 +840,7 @@ export function HackAndSlashGame() {
                   倒れたとき
                 </h3>
                 <p className="text-sm">
-                  HP が 0 になると入り口に戻ります。ログは続きます。
+                  HP が 0 になると入り口に戻ります。ログは続きます。戦闘で倒れた直後には【手がかり】が一行付くことがあり、次の立ち回りのヒントになります。
                 </p>
               </section>
               <section>

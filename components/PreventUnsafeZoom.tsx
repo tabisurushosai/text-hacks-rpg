@@ -3,8 +3,8 @@
 import { useEffect } from "react";
 
 /**
- * iOS（LINE 内ブラウザ含む）のピンチ拡大を抑える。
- * viewport + touch-action に加え、Safari の gesture 系イベントを止める。
+ * iOS / モバイル WebView のピンチ拡大を抑える。
+ * 本番想定は PC とホーム画面追加（スタンドアロン）だが、共有用 in-app でも効くよう残す。
  */
 export function PreventUnsafeZoom() {
   useEffect(() => {
