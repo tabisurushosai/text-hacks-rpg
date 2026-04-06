@@ -33,6 +33,7 @@ import {
   craftMinorMpPotion,
   descendStairs,
   explore,
+  expUntilLevelUp,
   initialGameState,
   inventoryActionLabel,
   openCraftMenu,
@@ -861,7 +862,12 @@ export function HackAndSlashGame() {
           <span className="text-[var(--muted)]">Lv</span>
           <span>{p.level}</span>
           <span className="text-[var(--muted)]">経験値</span>
-          <span>{p.exp}</span>
+          <span>
+            {p.exp}{" "}
+            <span className="text-[var(--muted)]">
+              （あと {expUntilLevelUp(p)} で Lv{p.level + 1}）
+            </span>
+          </span>
         </div>
         <div className="mt-2 border-t border-[var(--border)] pt-2 text-[var(--text)]">
           <p className="text-xs text-[var(--muted)]">装備</p>

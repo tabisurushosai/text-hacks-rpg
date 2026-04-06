@@ -46,6 +46,11 @@ function expToNext(level: number): number {
   return 8 + level * 6;
 }
 
+/** UI 用：次のレベルまでに必要な経験値の残り */
+export function expUntilLevelUp(player: Player): number {
+  return expToNext(player.level) - player.exp;
+}
+
 function inventoryItemsMatch(a: InventoryItem, b: InventoryItem): boolean {
   if (a.kind !== b.kind || a.name !== b.name || a.power !== b.power) {
     return false;
@@ -270,10 +275,11 @@ function addLootItem(
   };
 }
 
-function rollDrops(player: Player, lines: string[]): Player {
+function rollDrops(player: Player, lines: string[], floor: number): Player {
   let p = { ...player, inventory: [...player.inventory] };
 
-  if (Math.random() < 0.42) {
+  const weaponChance = Math.min(0.52, 0.36 + floor * 0.014);
+  if (Math.random() < weaponChance) {
     const w = generateWeapon();
     p = addLootItem(p, {
       name: w.fullName,
@@ -286,7 +292,8 @@ function rollDrops(player: Player, lines: string[]): Player {
     lines.push(`${w.fullName}を拾った。所持品に入れた。`);
   }
 
-  if (Math.random() < 0.35) {
+  const bookChance = Math.min(0.46, 0.32 + Math.max(0, floor - 1) * 0.018);
+  if (Math.random() < bookChance) {
     const book = pick(SPELL_BOOKS);
     if (!p.knownSpells.includes(book.spell)) {
       p = {
@@ -299,7 +306,7 @@ function rollDrops(player: Player, lines: string[]): Player {
     }
   }
 
-  if (Math.random() < 0.4) {
+  if (Math.random() < Math.min(0.48, 0.38 + floor * 0.012)) {
     p = addLootItem(p, {
       name: ITEM_HERB,
       kind: "restoreHp",
@@ -309,7 +316,7 @@ function rollDrops(player: Player, lines: string[]): Player {
     lines.push(`薬草を拾った。苦い。`);
   }
 
-  if (Math.random() < 0.22) {
+  if (Math.random() < Math.min(0.3, 0.2 + floor * 0.012)) {
     p = addLootItem(p, {
       name: ITEM_MANA_HERB,
       kind: "restoreMp",
@@ -318,6 +325,38 @@ function rollDrops(player: Player, lines: string[]): Player {
     });
     lines.push(`魔力草を拾った。`);
   }
+
+  return p;
+}
+
+function rollBossLoot(player: Player, lines: string[]): Player {
+  let p = { ...player, hp: player.maxHp, mp: player.maxMp };
+  lines.push("勝利の余波で体力と魔力が満ちた。");
+
+  p = addLootItem(p, {
+    name: ITEM_POTION_MEDIUM,
+    kind: "restoreHp",
+    power: POTION_MEDIUM_HP_POWER,
+    count: 1,
+  });
+  p = addLootItem(p, {
+    name: ITEM_MANA_POTION_MEDIUM,
+    kind: "restoreMp",
+    power: POTION_MEDIUM_MP_POWER,
+    count: 1,
+  });
+  lines.push("主の残骸から中級ポーションと中級魔力ポーションを得た。");
+
+  const w = generateWeapon();
+  p = addLootItem(p, {
+    name: w.fullName,
+    kind: "weapon",
+    power: w.atk,
+    count: 1,
+    weaponCategory: w.category,
+    weaponSpecial: w.special,
+  });
+  lines.push(`${w.fullName}も手元に転がっていた。`);
 
   return p;
 }
@@ -334,12 +373,32 @@ export function explore(state: GameState): GameState {
   const f = state.floor;
 
   if (f === 10 && state.bossDefeated) {
+    if (Math.random() < 0.11) {
+      const add = 8 + Math.floor(Math.random() * 12);
+      const nh = clamp(state.player.hp + add, 0, state.player.maxHp);
+      const up = nh - state.player.hp;
+      if (up > 0) {
+        lines.push(`底を渡る風が傷を撫でた。HPが${up}回復した。`);
+        return { ...state, player: { ...state.player, hp: nh }, log: [...state.log, ...lines] };
+      }
+    }
+    if (Math.random() < 0.09) {
+      const add = 4 + Math.floor(Math.random() * 7);
+      const nm = clamp(state.player.mp + add, 0, state.player.maxMp);
+      const up = nm - state.player.mp;
+      if (up > 0) {
+        lines.push(`静寂の中、星屑のような光がMPを${up}だけ満たした。`);
+        return { ...state, player: { ...state.player, mp: nm }, log: [...state.log, ...lines] };
+      }
+    }
     lines.push(
       pick([
         "静かだ。",
         "風が止んでいる。",
         "もう敵はいない。",
         "底に着いた気がする。",
+        "帰路は長く感じる。",
+        "胸の奥がまだ熱い。",
       ]),
     );
     return { ...state, log: [...state.log, ...lines] };
@@ -446,7 +505,7 @@ export function explore(state: GameState): GameState {
     return { ...state, log: [...state.log, ...lines] };
   }
 
-  if (r < 0.63) {
+  if (r < 0.61) {
     lines.push(
       pick([
         "壁に文字がある。読めない。",
@@ -461,6 +520,22 @@ export function explore(state: GameState): GameState {
         "遠くで水が滴る音がした。",
       ]),
     );
+    return { ...state, log: [...state.log, ...lines] };
+  }
+
+  if (r < 0.67) {
+    const add = 3 + Math.floor(Math.random() * 7);
+    const nm = clamp(state.player.mp + add, 0, state.player.maxMp);
+    const up = nm - state.player.mp;
+    if (up > 0) {
+      lines.push(`湿った空気が肺にしみる。MPが${up}回復した。`);
+      return {
+        ...state,
+        player: { ...state.player, mp: nm },
+        log: [...state.log, ...lines],
+      };
+    }
+    lines.push("湿気だけが肌にまとわりついた。");
     return { ...state, log: [...state.log, ...lines] };
   }
 
@@ -502,10 +577,22 @@ export function descendStairs(state: GameState): GameState {
     };
   }
 
+  const pl = state.player;
+  const hpRest = Math.min(14, 5 + Math.floor(Math.random() * 7));
+  const mpRest = Math.min(10, 2 + Math.floor(Math.random() * 5));
+  const nh = clamp(pl.hp + hpRest, 0, pl.maxHp);
+  const nm = clamp(pl.mp + mpRest, 0, pl.maxMp);
+  if (nh > pl.hp || nm > pl.mp) {
+    lines.push(
+      `踊り場で肩の力を抜いた。（HP+${nh - pl.hp} MP+${nm - pl.mp}）`,
+    );
+  }
+
   return {
     ...state,
     floor: nf,
     stairsVisible: false,
+    player: { ...pl, hp: nh, mp: nm },
     log: [...state.log, ...lines],
   };
 }
@@ -691,7 +778,9 @@ function endCombatVictory(state: GameState, lines: string[]): GameState {
   lines.push(`経験値を${enemy.expReward}得た。`);
   player = maybeLevelUp(player, lines);
   if (!wasBoss) {
-    player = rollDrops(player, lines);
+    player = rollDrops(player, lines, state.floor);
+  } else {
+    player = rollBossLoot(player, lines);
   }
 
   return {
@@ -1041,12 +1130,24 @@ export function combatRun(state: GameState): GameState {
   const lines: string[] = [];
   if (Math.random() < 0.55) {
     lines.push("離れた。");
+    const hpGain = 2 + Math.floor(Math.random() * 4);
+    const mpGain = 1 + Math.floor(Math.random() * 3);
+    const nh = clamp(s.player.hp + hpGain, 0, s.player.maxHp);
+    const nm = clamp(s.player.mp + mpGain, 0, s.player.maxMp);
+    const hpUp = nh - s.player.hp;
+    const mpUp = nm - s.player.mp;
+    if (hpUp > 0 || mpUp > 0) {
+      lines.push(
+        `息を整えた。${hpUp > 0 ? `HPが${hpUp}回復。` : ""}${mpUp > 0 ? `MPが${mpUp}回復。` : ""}`,
+      );
+    }
     return {
       ...s,
       phase: "explore",
       enemy: null,
       combatMenu: "main",
       bossCombatTurns: 0,
+      player: { ...s.player, hp: nh, mp: nm },
       log: [...s.log, ...lines],
     };
   }
