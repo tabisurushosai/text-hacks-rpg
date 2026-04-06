@@ -43,6 +43,7 @@ import {
   useItemExplore,
 } from "@/lib/game/core";
 import { useGameBgm } from "@/components/GameBgmContext";
+import { RUN_TARGET_MINUTES } from "@/lib/game/balance";
 import type { GameState, SpellId } from "@/lib/game/types";
 
 /** クリア報酬（本作 BGM） */
@@ -302,9 +303,12 @@ function formatStack(name: string, count: number): string {
 export function HackAndSlashGame() {
   const [game, setGame] = useState<GameState>(() => initialGameState());
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [helpOpen, setHelpOpen] = useState(false);
   const { bgmPlaying, bgmMissing, toggleBgm, resetGameBgm, syncPhase } =
     useGameBgm();
   const selectedIndexRef = useRef(0);
+  const helpOpenRef = useRef(false);
+  helpOpenRef.current = helpOpen;
   const logEndRef = useRef<HTMLDivElement>(null);
   const logWrapRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef(game);
@@ -347,7 +351,17 @@ export function HackAndSlashGame() {
   }, [game.log, scrollLogToBottom]);
 
   useEffect(() => {
+    if (!helpOpen) return;
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setHelpOpen(false);
+    };
+    window.addEventListener("keydown", onEsc);
+    return () => window.removeEventListener("keydown", onEsc);
+  }, [helpOpen]);
+
+  useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      if (helpOpenRef.current) return;
       const target = e.target as HTMLElement | null;
       if (
         target &&
@@ -391,13 +405,13 @@ export function HackAndSlashGame() {
   const inCombat = game.phase === "combat" && game.enemy;
 
   const btnCore =
-    "touch-manipulation rounded border px-2 py-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-40 sm:px-3";
+    "touch-manipulation select-none rounded border px-2 py-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-40 sm:px-3";
 
-  /** スマホで親指位置をそろえるメイン用（セルいっぱい・高さ確保） */
+  /** メイン・サブ共通：高さを揃えて誤タップを減らす */
   const btnClassGrid = (selected: boolean) =>
     [
       btnCore,
-      "min-h-[48px] w-full sm:min-h-0",
+      "min-h-[48px] w-full",
       "border-[var(--border)] bg-[var(--panel)] text-[var(--text)]",
       "hover:border-[var(--accent)] hover:bg-[#24303d]",
       selected
@@ -409,17 +423,8 @@ export function HackAndSlashGame() {
   const itemListScrollClass =
     "max-h-[min(42vh,15rem)] overflow-y-auto overscroll-y-contain pr-0.5";
 
-  /** クラフト・魔法・道具など可変行 */
-  const btnClass = (selected: boolean) =>
-    [
-      btnCore,
-      "min-h-[44px] sm:min-h-0",
-      "border-[var(--border)] bg-[var(--panel)] text-[var(--text)]",
-      "hover:border-[var(--accent)] hover:bg-[#24303d]",
-      selected
-        ? "ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-[var(--bg)]"
-        : "",
-    ].join(" ");
+  /** サブメニューもメインと同じ最小高さ */
+  const btnClass = (selected: boolean) => btnClassGrid(selected);
 
   const renderExploreButtons = () => {
     if (game.exploreMenu === "items") {
@@ -455,12 +460,14 @@ export function HackAndSlashGame() {
           <p className="text-xs text-[var(--muted)]">
             調合と所持品の使用（装備・消費）
           </p>
-          <div className={`flex flex-wrap gap-2 ${itemListScrollClass}`}>
+          <div className={`grid grid-cols-2 gap-2 ${itemListScrollClass}`}>
             {mainEntries.map((a) => renderBtn(a, indexOf(a.key)))}
           </div>
           {back && (
-            <div className="pt-1">
-              {renderBtn(back, indexOf(back.key))}
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <div className="col-span-2">
+                {renderBtn(back, indexOf(back.key))}
+              </div>
             </div>
           )}
         </div>
@@ -490,12 +497,14 @@ export function HackAndSlashGame() {
       return (
         <div className="space-y-2" role="group" aria-label="回復魔法">
           <p className="text-xs text-[var(--muted)]">探索中の回復魔法</p>
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-2 gap-2">
             {spells.map((a) => renderBtn(a, indexOf(a.key)))}
           </div>
           {back && (
-            <div className="pt-1">
-              {renderBtn(back, indexOf(back.key))}
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <div className="col-span-2">
+                {renderBtn(back, indexOf(back.key))}
+              </div>
             </div>
           )}
         </div>
@@ -575,13 +584,13 @@ export function HackAndSlashGame() {
 
     if (game.combatMenu === "magic") {
       return (
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap gap-2" role="group" aria-label="魔法">
+        <div className="grid grid-cols-2 gap-2">
+          <div className="col-span-2 grid grid-cols-2 gap-2" role="group" aria-label="魔法">
             {actions.slice(0, -1).map((a, i) => (
               <button
                 key={a.key}
                 type="button"
-                className={btnClass(i === selectedIndex)}
+                className={btnClassGrid(i === selectedIndex)}
                 disabled={a.disabled}
                 title={SPELLS[a.key.slice(6) as SpellId]?.description}
                 aria-current={i === selectedIndex ? "true" : undefined}
@@ -597,7 +606,7 @@ export function HackAndSlashGame() {
           {actions.length > 0 && (
             <button
               type="button"
-              className={btnClass(selectedIndex === actions.length - 1)}
+              className={`col-span-2 ${btnClassGrid(selectedIndex === actions.length - 1)}`}
               aria-current={
                 selectedIndex === actions.length - 1 ? "true" : undefined
               }
@@ -616,9 +625,9 @@ export function HackAndSlashGame() {
 
     if (game.combatMenu === "item") {
       return (
-        <div className="flex flex-col gap-2">
+        <div className="grid grid-cols-2 gap-2">
           <div
-            className={`flex flex-wrap gap-2 ${itemListScrollClass}`}
+            className={`col-span-2 grid grid-cols-2 gap-2 ${itemListScrollClass}`}
             role="group"
             aria-label="道具"
           >
@@ -626,7 +635,7 @@ export function HackAndSlashGame() {
               <button
                 key={a.key}
                 type="button"
-                className={btnClass(i === selectedIndex)}
+                className={btnClassGrid(i === selectedIndex)}
                 disabled={a.disabled}
                 title={a.title}
                 aria-current={i === selectedIndex ? "true" : undefined}
@@ -642,7 +651,7 @@ export function HackAndSlashGame() {
           {actions.length > 0 && (
             <button
               type="button"
-              className={btnClass(selectedIndex === actions.length - 1)}
+              className={`col-span-2 ${btnClassGrid(selectedIndex === actions.length - 1)}`}
               aria-current={
                 selectedIndex === actions.length - 1 ? "true" : undefined
               }
@@ -717,7 +726,98 @@ export function HackAndSlashGame() {
   }
 
   return (
-    <div className="mx-auto flex h-[100dvh] max-w-lg flex-col px-3 py-3">
+    <div className="relative mx-auto flex h-[100dvh] max-w-lg flex-col px-3 py-3">
+      {helpOpen ? (
+        <div
+          className="fixed inset-0 z-[100] flex items-end justify-center bg-black/55 p-3 sm:items-center"
+          role="presentation"
+          onClick={() => setHelpOpen(false)}
+        >
+          <div
+            className="max-h-[min(88dvh,32rem)] w-full max-w-md overflow-y-auto overscroll-contain rounded-lg border border-[var(--border)] bg-[var(--panel)] p-4 text-left text-sm text-[var(--text)] shadow-xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="help-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2
+              id="help-title"
+              className="mb-3 text-base font-semibold text-[var(--text)]"
+            >
+              メモ（用語・操作）
+            </h2>
+            <div className="space-y-4 text-[var(--text)] leading-relaxed">
+              <section>
+                <h3 className="mb-1 text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
+                  体験の目安
+                </h3>
+                <p className="text-sm">
+                  テキスト中心の短編ダンジョンです。1周の目安はおよそ
+                  {RUN_TARGET_MINUTES}
+                  分前後を想定して調整しています（進め方で前後します）。
+                </p>
+              </section>
+              <section>
+                <h3 className="mb-1 text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
+                  操作
+                </h3>
+                <ul className="list-disc space-y-1 pl-4 text-sm">
+                  <li>キーボード：矢印で選択、Enter か Space で決定</li>
+                  <li>スマホ：ボタンをタップ（選択と実行が同時になります）</li>
+                </ul>
+              </section>
+              <section>
+                <h3 className="mb-1 text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
+                  魔法
+                </h3>
+                <p className="text-sm">
+                  炎・氷・雷は攻撃、回復は HP
+                  回復です。炎は火力寄り、氷はダメージと「動けなくする」効果のバランス、雷はダメージ控えめで拘束が出やすい、というイメージです。氷と雷の拘束は中身は同じ（相手が動けないターン）です。
+                </p>
+              </section>
+              <section>
+                <h3 className="mb-1 text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
+                  弱点
+                </h3>
+                <p className="text-sm">
+                  一部の敵は炎・氷・雷のどれかに弱く、該当魔法で追加ダメージが入ります。ログに「弱点を突いた」と出ます。
+                </p>
+              </section>
+              <section>
+                <h3 className="mb-1 text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
+                  武器の括弧
+                </h3>
+                <p className="text-sm">
+                  装備・所持に表示される短い説明（括弧内）は、吸命・心眼・貫通・連閃などの効き方の目安です。長押しやホバーで全文を確認できます。
+                </p>
+              </section>
+              <section>
+                <h3 className="mb-1 text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
+                  倒れたとき
+                </h3>
+                <p className="text-sm">
+                  HP が 0 になると入り口に戻ります。ログは続きます。
+                </p>
+              </section>
+              <section>
+                <h3 className="mb-1 text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
+                  BGM
+                </h3>
+                <p className="text-sm">
+                  「BGM」で再生のオンオフ、「BGMリセット」でプレイヤーを作り直します。別アプリに切り替えて戻ったあと音が止まった場合は、もう一度「BGM」を押すかリセットを試してください。
+                </p>
+              </section>
+            </div>
+            <button
+              type="button"
+              className="touch-manipulation mt-5 w-full min-h-[48px] rounded border border-[var(--border)] bg-[#24303d] px-3 py-2 text-sm font-medium text-[var(--text)] hover:border-[var(--accent)]"
+              onClick={() => setHelpOpen(false)}
+            >
+              閉じる
+            </button>
+          </div>
+        </div>
+      ) : null}
       <header className="mb-2 shrink-0 border-b border-[var(--border)] pb-2">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
@@ -728,9 +828,17 @@ export function HackAndSlashGame() {
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
             <button
               type="button"
+              onClick={() => setHelpOpen(true)}
+              className="touch-manipulation min-h-[36px] min-w-[36px] select-none rounded border border-[var(--border)] bg-[var(--panel)] px-2 py-1 text-sm font-semibold text-[var(--text)] transition hover:border-[var(--accent)] hover:bg-[#24303d]"
+              aria-label="用語と操作のメモを開く"
+            >
+              ？
+            </button>
+            <button
+              type="button"
               onClick={() => void toggleBgm()}
               disabled={bgmMissing}
-              className="touch-manipulation rounded border border-[var(--border)] bg-[var(--panel)] px-2 py-1 text-xs text-[var(--text)] transition hover:border-[var(--accent)] hover:bg-[#24303d] disabled:cursor-not-allowed disabled:opacity-40"
+              className="touch-manipulation min-h-[36px] select-none rounded border border-[var(--border)] bg-[var(--panel)] px-2 py-1 text-xs text-[var(--text)] transition hover:border-[var(--accent)] hover:bg-[#24303d] disabled:cursor-not-allowed disabled:opacity-40"
               title={
                 bgmMissing
                   ? "public/bgm に explore.mp3・combat.mp3、または theme.mp3 を置いてください"
@@ -743,7 +851,7 @@ export function HackAndSlashGame() {
               type="button"
               onClick={() => resetGameBgm()}
               disabled={bgmMissing}
-              className="touch-manipulation rounded border border-[var(--border)] bg-[var(--panel)] px-2 py-1 text-xs text-[var(--text)] transition hover:border-[var(--accent)] hover:bg-[#24303d] disabled:cursor-not-allowed disabled:opacity-40"
+              className="touch-manipulation min-h-[36px] select-none rounded border border-[var(--border)] bg-[var(--panel)] px-2 py-1 text-xs text-[var(--text)] transition hover:border-[var(--accent)] hover:bg-[#24303d] disabled:cursor-not-allowed disabled:opacity-40"
               title="探索と戦闘の音源プレイヤーを作り直します。片方だけ鳴らないときに試してください。"
             >
               BGMリセット

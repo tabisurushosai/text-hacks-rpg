@@ -386,6 +386,41 @@ export function GameBgmProvider({
     playGameTrack,
   ]);
 
+  /** タブ復帰・バックグラウンド復帰で iOS 等が pause したあと、ON のままなら再開 */
+  useEffect(() => {
+    const resumeIfNeeded = () => {
+      if (document.visibilityState !== "visible") return;
+      if (!bgmPlayingRef.current || bgmMissing) return;
+      ensureGameBgmWired();
+      const explore = exploreBgmRef.current;
+      const combat = combatBgmRef.current;
+      const title = titleBgmRef.current;
+      if (!explore || !combat) return;
+      title?.pause();
+      const active = pickBgmForPhase(
+        currentPhaseRef.current,
+        exploreBgmDead,
+        combatBgmDead,
+        explore,
+        combat,
+      );
+      if (!active || !active.paused) return;
+      void active.play().catch(() => {});
+    };
+
+    document.addEventListener("visibilitychange", resumeIfNeeded);
+    window.addEventListener("pageshow", resumeIfNeeded);
+    return () => {
+      document.removeEventListener("visibilitychange", resumeIfNeeded);
+      window.removeEventListener("pageshow", resumeIfNeeded);
+    };
+  }, [
+    bgmMissing,
+    ensureGameBgmWired,
+    exploreBgmDead,
+    combatBgmDead,
+  ]);
+
   const value = useMemo(
     () => ({
       bgmPlaying,

@@ -1,3 +1,4 @@
+import { BOSS_USES_SAME_MULTIPLIER, scaleEnemyAtk, scaleEnemyHp } from "./balance";
 import {
   BOSS_TEMPLATE,
   CRAFT_COST,
@@ -20,6 +21,11 @@ import {
   templatesForFloor,
   WEAPON_SPECIAL_LABEL,
 } from "./data";
+import {
+  flavorAmbientDetail,
+  flavorAbyssCalm,
+  flavorQuiet,
+} from "./exploreFlavor";
 import type {
   EnemyInstance,
   GameState,
@@ -165,6 +171,7 @@ export function initialGameState(): GameState {
     log: [
       "ダンジョンの入り口にいる。",
       "下へ続く気配がある。",
+      "迷ったら画面右上の「？」で用語と操作のメモを開ける。",
     ],
   };
 }
@@ -180,12 +187,14 @@ function resetToEntrance(prevLog: string[]): GameState {
 function spawnEnemyForFloor(floor: number): EnemyInstance {
   const pool = templatesForFloor(floor);
   const t = pick(pool.length ? pool : templatesForFloor(1));
+  const maxHp = scaleEnemyHp(t.maxHp);
+  const atk = scaleEnemyAtk(t.atk);
   return {
     templateKey: t.key,
     name: t.name,
-    hp: t.maxHp,
-    maxHp: t.maxHp,
-    atk: t.atk,
+    hp: maxHp,
+    maxHp,
+    atk,
     def: t.def,
     expReward: t.expReward,
     weakness: t.weakness,
@@ -194,12 +203,16 @@ function spawnEnemyForFloor(floor: number): EnemyInstance {
 
 function spawnBoss(): EnemyInstance {
   const t = BOSS_TEMPLATE;
+  const maxHp = BOSS_USES_SAME_MULTIPLIER
+    ? scaleEnemyHp(t.maxHp)
+    : t.maxHp;
+  const atk = BOSS_USES_SAME_MULTIPLIER ? scaleEnemyAtk(t.atk) : t.atk;
   return {
     templateKey: t.key,
     name: t.name,
-    hp: t.maxHp,
-    maxHp: t.maxHp,
-    atk: t.atk,
+    hp: maxHp,
+    maxHp,
+    atk,
     def: t.def,
     expReward: t.expReward,
     isBoss: true,
@@ -413,16 +426,7 @@ export function explore(state: GameState): GameState {
         return { ...state, player: { ...state.player, mp: nm }, log: [...state.log, ...lines] };
       }
     }
-    lines.push(
-      pick([
-        "静かだ。",
-        "風が止んでいる。",
-        "もう敵はいない。",
-        "底に着いた気がする。",
-        "帰路は長く感じる。",
-        "胸の奥がまだ熱い。",
-      ]),
-    );
+    lines.push(pick(flavorAbyssCalm()));
     return { ...state, log: [...state.log, ...lines] };
   }
 
@@ -567,20 +571,7 @@ export function explore(state: GameState): GameState {
   }
 
   if (r < 0.61) {
-    lines.push(
-      pick([
-        "壁に文字がある。読めない。",
-        "冷たい風が抜けた。",
-        "水滴が落ちた。",
-        "指輪が転がっていた。拾わなかった。",
-        "蝋が溶けかけている。",
-        "誰かの足跡。古い。",
-        "釘が刺さっている。触らなかった。",
-        "薄い布が床に落ちていた。",
-        "かすかにカビの匂い。",
-        "遠くで水が滴る音がした。",
-      ]),
-    );
+    lines.push(pick(flavorAmbientDetail(state)));
     return { ...state, log: [...state.log, ...lines] };
   }
 
@@ -600,17 +591,7 @@ export function explore(state: GameState): GameState {
     return { ...state, log: [...state.log, ...lines] };
   }
 
-  const quiet = pick([
-    "風の音だけが聞こえる。",
-    "足元に小石が転がっている。",
-    "何も起きなかった。",
-    "遠くで鳥の声がした。",
-    "息が白くなった。",
-    "しばらく立ち止まった。",
-    "背中が冷えた。気のせいかもしれない。",
-    "小さな虫が這っていった。",
-  ]);
-  lines.push(quiet);
+  lines.push(pick(flavorQuiet(state)));
   return { ...state, log: [...state.log, ...lines] };
 }
 
