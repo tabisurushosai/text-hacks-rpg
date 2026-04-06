@@ -13,10 +13,11 @@ import {
 import { BGM_DEFAULT_VOLUME, BGM_PATHS } from "@/lib/bgm";
 import type { GamePhase } from "@/lib/game/types";
 
-function createLoopingBgm(): HTMLAudioElement {
+function createLoopingBgm(options?: { preload?: HTMLMediaElement["preload"] }): HTMLAudioElement {
   const a = new Audio();
   a.loop = true;
   a.volume = BGM_DEFAULT_VOLUME;
+  if (options?.preload) a.preload = options.preload;
   return a;
 }
 
@@ -45,8 +46,11 @@ type GameBgmContextValue = {
   titleBgmDead: boolean;
   toggleBgm: () => Promise<void>;
   syncPhase: (phase: GamePhase) => void;
-  /** タイトル画面でループ再生を試す（自動再生制限で失敗しうる） */
-  tryPlayTitleBgm: () => Promise<void>;
+  /**
+   * タイトル BGM を再生。必ず同期的に呼ぶこと（ポインター／キー操作のスタック内）。
+   * 自動再生だけ試す場合も同関数でよいが、多くの環境ではユーザー操作が必要。
+   */
+  tryPlayTitleBgm: () => void;
   /** タイトルを止め、探索フェーズ向けトラックを再生（無ければ戦闘へフォールバック） */
   startBgmExplore: () => Promise<void>;
 };
@@ -77,7 +81,7 @@ export function GameBgmProvider({ children }: { children: ReactNode }) {
   const bgmMissing = exploreBgmDead && combatBgmDead;
 
   useEffect(() => {
-    const title = createLoopingBgm();
+    const title = createLoopingBgm({ preload: "auto" });
     const explore = createLoopingBgm();
     const combat = createLoopingBgm();
     titleBgmRef.current = title;
@@ -149,13 +153,17 @@ export function GameBgmProvider({ children }: { children: ReactNode }) {
     setCurrentPhase(phase);
   }, []);
 
-  const tryPlayTitleBgm = useCallback(async () => {
+  const tryPlayTitleBgm = useCallback(() => {
     const title = titleBgmRef.current;
     if (!title || titleBgmDead) return;
-    try {
-      await title.play();
-    } catch {
-      /* 自動再生ポリシーなど */
+    const go = () => {
+      void title.play().catch(() => {
+        /* 未ロード・自動再生拒否など */
+      });
+    };
+    go();
+    if (title.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) {
+      title.addEventListener("canplay", go, { once: true });
     }
   }, [titleBgmDead]);
 

@@ -23,21 +23,11 @@ export function TitleScreen({ onEnter }: TitleScreenProps) {
   }, [onEnter, startBgmExplore]);
 
   useEffect(() => {
-    void tryPlayTitleBgm();
-  }, [tryPlayTitleBgm]);
-
-  useEffect(() => {
-    const onFirstPointer = () => {
-      void tryPlayTitleBgm();
-      window.removeEventListener("pointerdown", onFirstPointer);
-    };
-    window.addEventListener("pointerdown", onFirstPointer);
-    return () => window.removeEventListener("pointerdown", onFirstPointer);
+    tryPlayTitleBgm();
   }, [tryPlayTitleBgm]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Enter") return;
       const t = e.target as HTMLElement | null;
       if (
         t &&
@@ -47,16 +37,19 @@ export function TitleScreen({ onEnter }: TitleScreenProps) {
       ) {
         return;
       }
+      tryPlayTitleBgm();
+      if (e.key !== "Enter") return;
       e.preventDefault();
       void handleEnter();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [handleEnter]);
+  }, [handleEnter, tryPlayTitleBgm]);
 
   return (
     <div
       className={`relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden px-6 py-10 ${titleSerif.className}`}
+      onPointerDownCapture={() => tryPlayTitleBgm()}
     >
       {/* 奥行き：底へ沈むグラデーション */}
       <div
