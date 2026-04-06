@@ -16,6 +16,7 @@ import {
 import {
   closeExploreMagicMenu,
   closeItemsMenu,
+  closeSmithMenu,
   combatFight,
   combatItem,
   combatMagic,
@@ -26,12 +27,14 @@ import {
   craftMinorHpPotion,
   craftMinorMpPotion,
   descendStairs,
+  dismantleInventoryEquip,
   discardInventoryWeapons,
   explore,
   exploreMagic,
   inventoryActionLabel,
   openExploreMagicMenu,
   openItemsMenu,
+  openSmithMenu,
   orderedInventoryForMenu,
   useItemExplore,
 } from "@/lib/game/core";
@@ -58,10 +61,36 @@ export function buildGameActions(
   }
 
   if (game.phase === "explore") {
+    if (game.exploreMenu === "smith") {
+      const equips = orderedInventoryForMenu(p.inventory).filter(
+        (x) => x.kind === "weapon" || x.kind === "armor",
+      );
+      const dismantleEntries: ActionEntry[] = equips.map((it) => ({
+        key: `smith-${it.id}`,
+        label: `分解：${it.kind === "weapon" ? "武器" : "防具"} ${it.count > 1 ? `${it.name}×${it.count}` : it.name}`,
+        title:
+          "かばんの1スタック分を素材（薬草・魔力草）に還します。攻撃力・防御が高いほど多く得られます。",
+        onActivate: () =>
+          setGame((g) => {
+            const idx = g.player.inventory.findIndex((x) => x.id === it.id);
+            return dismantleInventoryEquip(g, idx >= 0 ? idx : 0);
+          }),
+      }));
+      return [
+        ...dismantleEntries,
+        {
+          key: "back-smith",
+          label: "戻る",
+          onActivate: () => setGame((g) => closeSmithMenu(g)),
+        },
+      ];
+    }
+
     if (game.exploreMenu === "items") {
       const equipHeldItems = p.inventory
         .filter((x) => x.kind === "weapon" || x.kind === "armor")
         .reduce((s, w) => s + w.count, 0);
+      const canSmith = equipHeldItems > 0;
       const herbs = countMaterial(game, ITEM_HERB);
       const manaHerbs = countMaterial(game, ITEM_MANA_HERB);
       const minorHp = countMaterial(game, ITEM_POTION_MINOR);
@@ -109,6 +138,14 @@ export function buildGameActions(
       return [
         ...craftsHerb,
         ...craftsTier,
+        {
+          key: "open-smith",
+          label: "分解（武器・防具→素材）",
+          disabled: !canSmith,
+          title:
+            "かばんの武器・防具を薬草・魔力草に還します（装備中のものは対象外）",
+          onActivate: () => setGame((g) => openSmithMenu(g)),
+        },
         ...useEntries,
         {
           key: "discard-weapons",

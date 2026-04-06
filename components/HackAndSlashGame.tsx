@@ -5,6 +5,7 @@ import { CombatHud } from "@/components/CombatHud";
 import { useGameBgm } from "@/components/GameBgmContext";
 import { JOB_META, JOB_ORDER, RUN_TARGET_MINUTES } from "@/lib/game/balance";
 import { expUntilLevelUp, initialGameState } from "@/lib/game/core";
+import { runClearEpithet } from "@/lib/game/runEpithet";
 import {
   formatArmorEquipLine,
   formatWeaponEquipLine,
@@ -253,6 +254,7 @@ export function HackAndSlashGame({
         "craft-mp",
         "craft-hp-med",
         "craft-mp-med",
+        "open-smith",
       ]);
       const mainEntries = actions.filter(
         (a) =>
@@ -285,6 +287,49 @@ export function HackAndSlashGame({
           </p>
           <div className={`grid grid-cols-2 gap-2 ${itemListScrollClass}`}>
             {mainEntries.map((a) => renderBtn(a, indexOf(a.key)))}
+          </div>
+          {back && (
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <div className="col-span-2">
+                {renderBtn(back, indexOf(back.key))}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    if (game.exploreMenu === "smith") {
+      const smithRows = actions.filter(
+        (a) => a.key.startsWith("smith-") || a.key === "back-smith",
+      );
+      const back = actions.find((a) => a.key === "back-smith");
+      const indexOf = (key: string) => actions.findIndex((a) => a.key === key);
+      const renderBtn = (a: ActionEntry, i: number) => (
+        <button
+          key={a.key}
+          type="button"
+          className={btnClass(i === selectedIndex)}
+          disabled={a.disabled}
+          title={a.title}
+          aria-current={i === selectedIndex ? "true" : undefined}
+          onClick={() => {
+            setSelectedIndex(i);
+            if (!a.disabled) a.onActivate();
+          }}
+        >
+          {a.label}
+        </button>
+      );
+      return (
+        <div className="space-y-2" role="group" aria-label="武器・防具の分解">
+          <p className="text-xs text-[var(--muted)]">
+            武器・防具を素材（薬草・魔力草）に還します
+          </p>
+          <div className={`grid grid-cols-2 gap-2 ${itemListScrollClass}`}>
+            {smithRows
+              .filter((a) => a.key !== "back-smith")
+              .map((a) => renderBtn(a, indexOf(a.key)))}
           </div>
           {back && (
             <div className="grid grid-cols-2 gap-2 pt-1">
@@ -569,6 +614,9 @@ export function HackAndSlashGame({
                 ? formatArmorEquipLine(game.player.armor)
                 : "防具なし"}
             </li>
+            <li className="pt-1 text-[var(--accent)]">
+              今回の称号：「{runClearEpithet(game)}」
+            </li>
           </ul>
         </div>
         <div className="rounded border border-[var(--border)] bg-[var(--panel)] px-4 py-4 text-left text-sm text-[var(--text)]">
@@ -743,6 +791,14 @@ export function HackAndSlashGame({
                 </h3>
                 <p className="text-sm">
                   装備・所持に表示される短い説明（括弧内）は、武器なら吸命・心眼・貫通・連閃、防具なら棘甲・結界・堅壳・滴血などの効き方の目安です。防御は敵の物理攻撃を軽減し、探索での転倒ダメージも少し抑えます。長押しやホバーで全文を確認できます。
+                </p>
+              </section>
+              <section>
+                <h3 className="mb-1 text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
+                  ドロップ・分解・称号
+                </h3>
+                <p className="text-sm">
+                  武器・防具を拾ったあと、たまに続けて品質の一文が付きます。敵の種類によっては薬草・魔力草・装備のドロップ率が少し変わります。調合アイテム画面の「分解」で、かばんの武器・防具を薬草・魔力草に還せます（数値が高いほど多め）。クリア時はログとクリア画面に、今回の周回向けの短い称号が一行付きます（タイトル画面には出ません）。
                 </p>
               </section>
               <section>

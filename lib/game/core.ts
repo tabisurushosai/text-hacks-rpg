@@ -23,8 +23,10 @@ import {
   ARMOR_DEF_MAX,
   ARMOR_PREFIXES,
   ARMOR_SPECIAL_LABEL,
+  ENEMY_EXTRA_LOOT,
   spellBooksLootPool,
   SPELLS,
+  rollLootQualityFlairLine,
   WEAPON_ATK_MAX,
   WEAPON_BASES,
   WEAPON_PREFIXES,
@@ -49,6 +51,7 @@ import {
   flavorQuiet,
 } from "./exploreFlavor";
 import { LORE_INTRO_DESCENDER } from "./lore";
+import { runClearEpithet } from "./runEpithet";
 import { applyExploreSelfSpell, runCombatSpell } from "./spellEffects";
 import type {
   Armor,
@@ -79,6 +82,11 @@ function clamp(n: number, min: number, max: number): number {
 
 function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)]!;
+}
+
+function pushEquipLootFlair(lines: string[], equipStat: number): void {
+  const line = rollLootQualityFlairLine(equipStat);
+  if (line) lines.push(line);
 }
 
 /** UI 用：次のレベルまでに必要な経験値の残り */
@@ -417,13 +425,21 @@ function addLootItem(
   };
 }
 
-function rollDrops(player: Player, lines: string[], floor: number): Player {
+function rollDrops(
+  player: Player,
+  lines: string[],
+  floor: number,
+  defeatedTemplateKey: string,
+): Player {
   let p = { ...player, inventory: [...player.inventory] };
+  const extra = ENEMY_EXTRA_LOOT[defeatedTemplateKey] ?? {};
 
   const wcfg = BALANCE_TUNING.combatLoot.weapon;
   const weaponChance = Math.min(
     wcfg.cap,
-    wcfg.baseChance + Math.max(0, floor - 1) * wcfg.perFloor,
+    wcfg.baseChance +
+      Math.max(0, floor - 1) * wcfg.perFloor +
+      (extra.weaponChanceAdd ?? 0),
   );
   if (Math.random() < weaponChance) {
     const w = generateWeapon();
@@ -436,12 +452,15 @@ function rollDrops(player: Player, lines: string[], floor: number): Player {
       weaponSpecial: w.special,
     });
     lines.push(`${w.fullName}を拾った。所持品に入れた。`);
+    pushEquipLootFlair(lines, w.atk);
   }
 
   const acfg = BALANCE_TUNING.combatLoot.armor;
   const armorChance = Math.min(
     acfg.cap,
-    acfg.baseChance + Math.max(0, floor - 1) * acfg.perFloor,
+    acfg.baseChance +
+      Math.max(0, floor - 1) * acfg.perFloor +
+      (extra.armorChanceAdd ?? 0),
   );
   if (Math.random() < armorChance) {
     const a = generateArmor();
@@ -454,6 +473,7 @@ function rollDrops(player: Player, lines: string[], floor: number): Player {
       armorSpecial: a.special,
     });
     lines.push(`${a.fullName}を拾った。所持品に入れた。`);
+    pushEquipLootFlair(lines, a.def);
   }
 
   const bcfg = BALANCE_TUNING.combatLoot.spellBook;
@@ -475,7 +495,13 @@ function rollDrops(player: Player, lines: string[], floor: number): Player {
   }
 
   const hcfg = BALANCE_TUNING.combatLoot.herb;
-  if (Math.random() < Math.min(hcfg.cap, hcfg.intercept + floor * hcfg.perFloor)) {
+  const herbP = Math.min(
+    hcfg.cap,
+    hcfg.intercept +
+      floor * hcfg.perFloor +
+      (extra.herbBonusChance ?? 0),
+  );
+  if (Math.random() < herbP) {
     p = addLootItem(p, {
       name: ITEM_HERB,
       kind: "restoreHp",
@@ -486,7 +512,13 @@ function rollDrops(player: Player, lines: string[], floor: number): Player {
   }
 
   const mcfg = BALANCE_TUNING.combatLoot.manaHerb;
-  if (Math.random() < Math.min(mcfg.cap, mcfg.intercept + floor * mcfg.perFloor)) {
+  const manaP = Math.min(
+    mcfg.cap,
+    mcfg.intercept +
+      floor * mcfg.perFloor +
+      (extra.manaHerbBonusChance ?? 0),
+  );
+  if (Math.random() < manaP) {
     p = addLootItem(p, {
       name: ITEM_MANA_HERB,
       kind: "restoreMp",
@@ -527,6 +559,7 @@ function rollBossLoot(player: Player, lines: string[]): Player {
     weaponSpecial: w.special,
   });
   lines.push(`${w.fullName}も手元に転がっていた。`);
+  pushEquipLootFlair(lines, w.atk);
 
   const a = generateArmor();
   p = addLootItem(p, {
@@ -538,6 +571,40 @@ function rollBossLoot(player: Player, lines: string[]): Player {
     armorSpecial: a.special,
   });
   lines.push(`${a.fullName}も、主の影に引き寄せられていた。`);
+  pushEquipLootFlair(lines, a.def);
+
+  const bossX = ENEMY_EXTRA_LOOT.boss_depth;
+  if (bossX?.herbBonusChance && Math.random() < bossX.herbBonusChance) {
+    p = addLootItem(p, {
+      name: ITEM_HERB,
+      kind: "restoreHp",
+      power: 10,
+      count: 1,
+    });
+    lines.push("主の屑から薬草が転がり出た。");
+  }
+  if (bossX?.manaHerbBonusChance && Math.random() < bossX.manaHerbBonusChance) {
+    p = addLootItem(p, {
+      name: ITEM_MANA_HERB,
+      kind: "restoreMp",
+      power: 8,
+      count: 1,
+    });
+    lines.push("主の屑に魔力草が混じっていた。");
+  }
+  if (bossX?.weaponChanceAdd && Math.random() < bossX.weaponChanceAdd) {
+    const w2 = generateWeapon();
+    p = addLootItem(p, {
+      name: w2.fullName,
+      kind: "weapon",
+      power: w2.atk,
+      count: 1,
+      weaponCategory: w2.category,
+      weaponSpecial: w2.special,
+    });
+    lines.push(`主の硬い殻の間に、${w2.fullName}が楔のように刺さっていた。`);
+    pushEquipLootFlair(lines, w2.atk);
+  }
 
   return p;
 }
@@ -613,6 +680,7 @@ function openExplorationTreasureChest(
       weaponSpecial: w.special,
     });
     lines.push(`${w.fullName}が収められていた。`);
+    pushEquipLootFlair(lines, w.atk);
   } else if (u < 0.66) {
     const a = generateArmor();
     p = addLootItem(p, {
@@ -624,6 +692,7 @@ function openExplorationTreasureChest(
       armorSpecial: a.special,
     });
     lines.push(`${a.fullName}が折りたたまれて入っていた。`);
+    pushEquipLootFlair(lines, a.def);
   } else if (u < 0.88) {
     const xp = 4 + f * 2 + Math.floor(Math.random() * 6);
     p = { ...p, exp: p.exp + xp };
@@ -951,6 +1020,16 @@ export function openItemsMenu(state: GameState): GameState {
   return { ...state, exploreMenu: "items" };
 }
 
+/** 調合画面から：武器・防具を素材に分解するサブ画面 */
+export function openSmithMenu(state: GameState): GameState {
+  if (state.phase !== "explore") return state;
+  return { ...state, exploreMenu: "smith" };
+}
+
+export function closeSmithMenu(state: GameState): GameState {
+  return { ...state, exploreMenu: "items" };
+}
+
 export function closeItemsMenu(state: GameState): GameState {
   return { ...state, exploreMenu: "main" };
 }
@@ -1016,6 +1095,59 @@ export function discardInventoryWeapons(state: GameState): GameState {
     ...state,
     player: { ...state.player, inventory: nextInv },
     log: [...state.log, `所持の武器・防具を${n}件手放した。`],
+  };
+}
+
+function dismantleMaterialYield(power: number): {
+  herbs: number;
+  manaHerbs: number;
+} {
+  const t = Math.max(1, power);
+  if (t <= 3) return { herbs: 1, manaHerbs: 0 };
+  if (t <= 6) return { herbs: 2, manaHerbs: 0 };
+  if (t <= 9) return { herbs: 2, manaHerbs: 1 };
+  return { herbs: 3, manaHerbs: 1 };
+}
+
+/** 探索・かばん内の武器または防具1スタック分を薬草・魔力草に還す */
+export function dismantleInventoryEquip(
+  state: GameState,
+  itemIndex: number,
+): GameState {
+  if (state.phase !== "explore") return state;
+  const item = state.player.inventory[itemIndex];
+  if (!item || (item.kind !== "weapon" && item.kind !== "armor")) {
+    return state;
+  }
+
+  const inv = removeOneItem(state.player.inventory, itemIndex);
+  let p: Player = { ...state.player, inventory: inv };
+  const { herbs, manaHerbs } = dismantleMaterialYield(item.power);
+  for (let i = 0; i < herbs; i++) {
+    p = addLootItem(p, {
+      name: ITEM_HERB,
+      kind: "restoreHp",
+      power: 10,
+      count: 1,
+    });
+  }
+  for (let i = 0; i < manaHerbs; i++) {
+    p = addLootItem(p, {
+      name: ITEM_MANA_HERB,
+      kind: "restoreMp",
+      power: 8,
+      count: 1,
+    });
+  }
+  const kindJa = item.kind === "weapon" ? "武器" : "防具";
+  const mats: string[] = [];
+  if (herbs > 0) mats.push(`薬草×${herbs}`);
+  if (manaHerbs > 0) mats.push(`魔力草×${manaHerbs}`);
+  const line = `${kindJa}「${item.name}」を砕き、${mats.join("と")}を得た。`;
+  return {
+    ...state,
+    player: p,
+    log: [...state.log, line],
   };
 }
 
@@ -1173,9 +1305,21 @@ function endCombatVictory(state: GameState, lines: string[]): GameState {
   lines.push(`経験値を${enemy.expReward}得た。`);
   player = maybeLevelUp(player, lines);
   if (!wasBoss) {
-    player = rollDrops(player, lines, state.floor);
+    player = rollDrops(player, lines, state.floor, enemy.templateKey);
   } else {
     player = rollBossLoot(player, lines);
+  }
+
+  if (wasBoss) {
+    lines.push(
+      `【今回の称号】「${runClearEpithet({
+        ...state,
+        player,
+        phase: "cleared",
+        enemy: null,
+        bossDefeated: true,
+      })}」`,
+    );
   }
 
   lines.push(

@@ -136,8 +136,8 @@ export type CombatMenu = "main" | "abilities" | "item";
 
 export type GamePhase = "explore" | "combat" | "cleared";
 
-/** main=行動選択 / items=調合と所持品の使用を同一画面 / magic=探索中の回復魔法のみ */
-export type ExploreMenu = "main" | "items" | "magic";
+/** main=行動選択 / items=調合と所持品 / magic=探索魔法 / smith=武器・防具の分解 */
+export type ExploreMenu = "main" | "items" | "magic" | "smith";
 
 /**
  * ローカル記録・セーブ同期用。1 フレームだけ載せ、UI が処理後に除去する。

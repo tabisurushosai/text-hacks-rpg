@@ -267,6 +267,66 @@ export const ARMOR_SPECIAL_POOL: { id: ArmorSpecial; weight: number }[] = [
   { id: "regen", weight: 12 },
 ];
 
+function pickData<T>(arr: readonly T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)]!;
+}
+
+/**
+ * 武器・防具取得ログの直後に続く品質フレーバー（確率で1行、装備値が高いほど上の帯）。
+ */
+export function rollLootQualityFlairLine(equipStat: number): string | null {
+  if (Math.random() > 0.44) return null;
+  if (equipStat >= 11) {
+    return pickData([
+      "手に取った瞬間、層底の冷たさが指にしみる。",
+      "底の気配が、先端にまとわりついている。",
+      "めったに見ない品だ。",
+    ]);
+  }
+  if (equipStat >= 8) {
+    return pickData([
+      "珍しそうだ。",
+      "丁寧に手入れされた跡がある。",
+      "燈の残り香のようなものがする。",
+    ]);
+  }
+  if (equipStat >= 5) {
+    return pickData(["どこか堅実な作りだ。", "旅の空気が染みついている。"]);
+  }
+  return pickData(["使えそうだ。", "錆と埃の匂いがする。"]);
+}
+
+/** 敵テンプレ key（例 f5_e3）ごとのドロップ補正。狩りの差別化用 */
+export type EnemyExtraLoot = {
+  weaponChanceAdd?: number;
+  armorChanceAdd?: number;
+  herbBonusChance?: number;
+  manaHerbBonusChance?: number;
+};
+
+export const ENEMY_EXTRA_LOOT: Record<string, EnemyExtraLoot> = {
+  /** 刃の虫 */
+  f5_e3: { weaponChanceAdd: 0.075 },
+  /** 沼の蛙 */
+  f4_e2: { herbBonusChance: 0.11 },
+  /** 濁った鬼火 */
+  f6_e0: { manaHerbBonusChance: 0.11 },
+  /** 錆びた骨 */
+  f7_e4: { weaponChanceAdd: 0.05, herbBonusChance: 0.1 },
+  /** 骨の束 */
+  f8_e2: { armorChanceAdd: 0.065 },
+  /** 歪んだ虫 */
+  f9_e0: { weaponChanceAdd: 0.055, armorChanceAdd: 0.055 },
+  /** 狭間の塊 */
+  f9_e4: { manaHerbBonusChance: 0.14, armorChanceAdd: 0.04 },
+  /** 深層の主（ボス専用ロール用） */
+  boss_depth: {
+    herbBonusChance: 0.22,
+    manaHerbBonusChance: 0.16,
+    weaponChanceAdd: 0.1,
+  },
+};
+
 export const SPELLS: Record<
   SpellId,
   { label: string; mpCost: number; description: string }

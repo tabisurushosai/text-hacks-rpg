@@ -11,7 +11,14 @@ import {
   mergeMetaAfterDeath,
   mergeMetaRunStarted,
 } from "./metaRecords";
-import type { Armor, CombatMenu, GameState, JobId, Player } from "./types";
+import type {
+  Armor,
+  CombatMenu,
+  ExploreMenu,
+  GameState,
+  JobId,
+  Player,
+} from "./types";
 
 type SaveEnvelope = {
   v: typeof SAVE_PAYLOAD_VERSION | typeof SAVE_LEGACY_VERSION;
@@ -46,6 +53,18 @@ function normalizeCombatMenu(raw: unknown): CombatMenu {
   return "main";
 }
 
+function normalizeExploreMenu(raw: unknown): ExploreMenu {
+  if (
+    raw === "main" ||
+    raw === "items" ||
+    raw === "magic" ||
+    raw === "smith"
+  ) {
+    return raw;
+  }
+  return "main";
+}
+
 function normalizeLoadedState(s: GameState): GameState {
   const p = s.player as Player & { armor?: Armor | null };
   return {
@@ -53,7 +72,7 @@ function normalizeLoadedState(s: GameState): GameState {
     pendingClientEvent: null,
     bossCombatTurns: s.bossCombatTurns ?? 0,
     totalBattlesFought: s.totalBattlesFought ?? 0,
-    exploreMenu: s.exploreMenu ?? "main",
+    exploreMenu: normalizeExploreMenu(s.exploreMenu),
     combatMenu: normalizeCombatMenu(s.combatMenu),
     stairsVisible: Boolean(s.stairsVisible),
     bossDefeated: Boolean(s.bossDefeated),
