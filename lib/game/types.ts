@@ -136,7 +136,7 @@ export type CombatMenu = "main" | "abilities" | "item";
 
 export type GamePhase = "explore" | "combat" | "cleared";
 
-/** main=行動選択 / items=調合と所持品 / magic=探索魔法 / smith=武器・防具の分解 */
+/** main=行動選択 / items=調合と所持品 / magic=探索魔法 / smith=武器・防具を経験値に分解 */
 export type ExploreMenu = "main" | "items" | "magic" | "smith";
 
 /**

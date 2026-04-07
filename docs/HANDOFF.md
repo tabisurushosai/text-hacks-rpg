@@ -66,7 +66,7 @@
 - **`ExploreMenu`**: `"main" | "items" | "magic" | "smith"`。
 - **main**: 2×2（探索／調合アイテム／魔法／階段）。
 - **items**: 調合・所持品使用・分解へ・一括捨て。
-- **smith**: 武器・防具を素材に分解。
+- **smith**: 武器・防具を砕いて経験値化。
 - 古いセーブは `normalizeExploreMenu` で未知の値を **`main` に落とす**。
 
 ---

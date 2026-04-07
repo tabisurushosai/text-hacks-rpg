@@ -1098,18 +1098,12 @@ export function discardInventoryWeapons(state: GameState): GameState {
   };
 }
 
-function dismantleMaterialYield(power: number): {
-  herbs: number;
-  manaHerbs: number;
-} {
+function dismantleExpYield(power: number): number {
   const t = Math.max(1, power);
-  if (t <= 3) return { herbs: 1, manaHerbs: 0 };
-  if (t <= 6) return { herbs: 2, manaHerbs: 0 };
-  if (t <= 9) return { herbs: 2, manaHerbs: 1 };
-  return { herbs: 3, manaHerbs: 1 };
+  return 5 + t * 2 + Math.floor(Math.random() * (4 + Math.min(4, Math.floor(t / 3))));
 }
 
-/** 探索・かばん内の武器または防具1スタック分を薬草・魔力草に還す */
+/** 探索・かばん内の武器または防具1スタック分を砕き、経験値に変える */
 export function dismantleInventoryEquip(
   state: GameState,
   itemIndex: number,
@@ -1121,34 +1115,117 @@ export function dismantleInventoryEquip(
   }
 
   const inv = removeOneItem(state.player.inventory, itemIndex);
-  let p: Player = { ...state.player, inventory: inv };
-  const { herbs, manaHerbs } = dismantleMaterialYield(item.power);
-  for (let i = 0; i < herbs; i++) {
-    p = addLootItem(p, {
-      name: ITEM_HERB,
-      kind: "restoreHp",
-      power: 10,
-      count: 1,
-    });
-  }
-  for (let i = 0; i < manaHerbs; i++) {
-    p = addLootItem(p, {
-      name: ITEM_MANA_HERB,
-      kind: "restoreMp",
-      power: 8,
-      count: 1,
-    });
-  }
+  const xp = dismantleExpYield(item.power);
+  let p: Player = { ...state.player, inventory: inv, exp: state.player.exp + xp };
   const kindJa = item.kind === "weapon" ? "武器" : "防具";
-  const mats: string[] = [];
-  if (herbs > 0) mats.push(`薬草×${herbs}`);
-  if (manaHerbs > 0) mats.push(`魔力草×${manaHerbs}`);
-  const line = `${kindJa}「${item.name}」を砕き、${mats.join("と")}を得た。`;
+  const lines: string[] = [
+    `${kindJa}「${item.name}」を砕いた。経験値を${xp}得た。`,
+  ];
+  p = maybeLevelUp(p, lines);
   return {
     ...state,
     player: p,
-    log: [...state.log, line],
+    log: [...state.log, ...lines],
   };
+}
+
+function findBestWeaponInventoryIndex(inv: InventoryItem[]): number | null {
+  let bestI: number | null = null;
+  let bestP = -1;
+  let bestName = "";
+  for (let i = 0; i < inv.length; i++) {
+    const it = inv[i]!;
+    if (it.kind !== "weapon") continue;
+    if (
+      it.power > bestP ||
+      (it.power === bestP && it.name.localeCompare(bestName, "ja") < 0)
+    ) {
+      bestP = it.power;
+      bestName = it.name;
+      bestI = i;
+    }
+  }
+  return bestI;
+}
+
+function findBestArmorInventoryIndex(inv: InventoryItem[]): number | null {
+  let bestI: number | null = null;
+  let bestP = -1;
+  let bestName = "";
+  for (let i = 0; i < inv.length; i++) {
+    const it = inv[i]!;
+    if (it.kind !== "armor") continue;
+    if (
+      it.power > bestP ||
+      (it.power === bestP && it.name.localeCompare(bestName, "ja") < 0)
+    ) {
+      bestP = it.power;
+      bestName = it.name;
+      bestI = i;
+    }
+  }
+  return bestI;
+}
+
+/** かばんに、いま装備より強い武器・防具があるか（最強装備ボタン用） */
+export function canUpgradeGearFromInventory(player: Player): boolean {
+  const wIdx = findBestWeaponInventoryIndex(player.inventory);
+  const wOk =
+    wIdx !== null &&
+    (player.weapon === null ||
+      player.inventory[wIdx]!.power > player.weapon.atk);
+  const aIdx = findBestArmorInventoryIndex(player.inventory);
+  const aOk =
+    aIdx !== null &&
+    (player.armor === null ||
+      player.inventory[aIdx]!.power > player.armor.def);
+  return wOk || aOk;
+}
+
+/** かばんと身に着けたもののうち、攻撃・防御が最大の武器と防具を装備する */
+export function equipBestGearFromInventory(state: GameState): GameState {
+  if (state.phase !== "explore") return state;
+
+  const lines: string[] = [];
+  let g: GameState = state;
+
+  const wIdx = findBestWeaponInventoryIndex(g.player.inventory);
+  if (
+    wIdx !== null &&
+    (g.player.weapon === null ||
+      g.player.inventory[wIdx]!.power > g.player.weapon.atk)
+  ) {
+    const r = equipWeaponFromInventoryPlayer(g.player, wIdx);
+    if (r) {
+      lines.push(r.line);
+      g = { ...g, player: r.player };
+    }
+  }
+
+  const aIdx = findBestArmorInventoryIndex(g.player.inventory);
+  if (
+    aIdx !== null &&
+    (g.player.armor === null ||
+      g.player.inventory[aIdx]!.power > g.player.armor.def)
+  ) {
+    const r = equipArmorFromInventoryPlayer(g.player, aIdx);
+    if (r) {
+      lines.push(r.line);
+      g = { ...g, player: r.player };
+    }
+  }
+
+  if (lines.length === 0) {
+    return {
+      ...g,
+      log: [
+        ...g.log,
+        "かばんの中では、いま身につけているもの以上に強い武器も防具もない。",
+      ],
+    };
+  }
+
+  return { ...g, log: [...state.log, ...lines] };
 }
 
 function craft(

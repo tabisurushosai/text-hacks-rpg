@@ -21,6 +21,7 @@ import {
   combatItem,
   combatMagic,
   combatRun,
+  canUpgradeGearFromInventory,
   countMaterial,
   craftMediumHpPotion,
   craftMediumMpPotion,
@@ -29,6 +30,7 @@ import {
   descendStairs,
   dismantleInventoryEquip,
   discardInventoryWeapons,
+  equipBestGearFromInventory,
   explore,
   exploreMagic,
   inventoryActionLabel,
@@ -69,7 +71,7 @@ export function buildGameActions(
         key: `smith-${it.id}`,
         label: `分解：${it.kind === "weapon" ? "武器" : "防具"} ${it.count > 1 ? `${it.name}×${it.count}` : it.name}`,
         title:
-          "かばんの1スタック分を素材（薬草・魔力草）に還します。攻撃力・防御が高いほど多く得られます。",
+          "かばんの1スタック分を砕き、経験値に変えます。攻撃力・防御が高いほど多く得られます。",
         onActivate: () =>
           setGame((g) => {
             const idx = g.player.inventory.findIndex((x) => x.id === it.id);
@@ -139,11 +141,19 @@ export function buildGameActions(
         ...craftsHerb,
         ...craftsTier,
         {
+          key: "equip-best-gear",
+          label: "最強装備（数値最大の武器・防具）",
+          disabled: !canUpgradeGearFromInventory(p),
+          title:
+            "かばんにある装備のうち、攻撃力・防御力がいちばん大きい武器と防具を身につけます（いまの装備より弱いものは替えません）",
+          onActivate: () => setGame((g) => equipBestGearFromInventory(g)),
+        },
+        {
           key: "open-smith",
-          label: "分解（武器・防具→素材）",
+          label: "分解（武器・防具→経験値）",
           disabled: !canSmith,
           title:
-            "かばんの武器・防具を薬草・魔力草に還します（装備中のものは対象外）",
+            "かばんの武器・防具を砕いて経験値にします（装備中のものは対象外）",
           onActivate: () => setGame((g) => openSmithMenu(g)),
         },
         ...useEntries,

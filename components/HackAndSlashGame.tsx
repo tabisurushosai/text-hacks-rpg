@@ -258,6 +258,7 @@ export function HackAndSlashGame({
         "craft-mp",
         "craft-hp-med",
         "craft-mp-med",
+        "equip-best-gear",
         "open-smith",
       ]);
       const mainEntries = actions.filter(
@@ -328,7 +329,7 @@ export function HackAndSlashGame({
       return (
         <div className="space-y-2" role="group" aria-label="武器・防具の分解">
           <p className="text-xs text-[var(--muted)]">
-            武器・防具を素材（薬草・魔力草）に還します
+            武器・防具を砕いて経験値にします
           </p>
           <div className={`grid grid-cols-2 gap-2 ${itemListScrollClass}`}>
             {smithRows
@@ -803,7 +804,7 @@ export function HackAndSlashGame({
                   ドロップ・分解・称号
                 </h3>
                 <p className="text-sm">
-                  武器・防具を拾ったあと、たまに続けて品質の一文が付きます。敵の種類によっては薬草・魔力草・装備のドロップ率が少し変わります。調合アイテム画面の「分解」で、かばんの武器・防具を薬草・魔力草に還せます（数値が高いほど多め）。クリア時はログとクリア画面に、今回の周回向けの短い称号が一行付きます（タイトル画面には出ません）。感想・不具合は X の{" "}
+                  武器・防具を拾ったあと、たまに続けて品質の一文が付きます。敵の種類によっては薬草・魔力草・装備のドロップ率が少し変わります。調合アイテムの「最強装備」で、かばんにあるうち最も数値の大きい武器と防具をまとめて装備できます。「分解」ではかばんの武器・防具を砕いて経験値にします。クリア時はログとクリア画面に、今回の周回向けの短い称号が一行付きます（タイトル画面には出ません）。感想・不具合は X の{" "}
                   <a
                     href={AUTHOR_FEEDBACK_X_URL}
                     className="text-[var(--accent)] underline underline-offset-2"
