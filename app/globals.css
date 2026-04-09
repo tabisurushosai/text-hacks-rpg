@@ -7,6 +7,26 @@
   --text: #e6edf3;
   --muted: #8b9bab;
   --accent: #5b8c7a;
+  /** 探索メインのプレースホルダーと戦闘HUDの最小高さを揃え、操作帯の縦位置を近づける */
+  --combat-hud-min-height: 6.75rem;
+}
+
+.explore-hud-spacer {
+  min-height: var(--combat-hud-min-height);
+}
+
+.combat-hud-surface {
+  min-height: var(--combat-hud-min-height);
+}
+
+/** 操作 2×2：iOS 等で列が段ごとにズレないよう minmax(0,1fr) を明示 */
+.action-grid-2x2 {
+  display: grid;
+  width: 100%;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 0.5rem;
+  row-gap: 0.5rem;
+  align-content: start;
 }
 
 html {

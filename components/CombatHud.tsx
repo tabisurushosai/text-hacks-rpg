@@ -28,7 +28,7 @@ export function CombatHud({
 
   return (
     <div
-      className="mb-2 shrink-0 space-y-2 rounded border border-[var(--border)] bg-[#121a22]/90 px-2.5 py-2 text-xs"
+      className="combat-hud-surface mb-2 shrink-0 space-y-2 rounded border border-[var(--border)] bg-[#121a22]/90 px-2.5 py-2 text-xs"
       aria-label="戦闘状況"
     >
       <div>

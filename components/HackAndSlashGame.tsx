@@ -230,19 +230,24 @@ export function HackAndSlashGame({
     game.phase === "combat" && game.combatMenu === "main";
 
   const btnCore =
-    "touch-manipulation select-none rounded border px-2 py-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-40 sm:px-3";
+    "touch-manipulation select-none rounded border-2 px-2 py-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-40 sm:px-3";
 
-  /** メイン・サブ共通：高さを揃えて誤タップを減らす */
+  /**
+   * メイン・サブ共通。選択は border のみ（ring / ring-inset は iOS Safari で角丸外に線が浮くことがある）。
+   * min-w-0: grid 子の min-width:auto による列ズレを防ぐ。
+   */
   const btnClassGrid = (selected: boolean) =>
     [
       btnCore,
-      "min-h-[48px] w-full",
-      "border-[var(--border)] bg-[var(--panel)] text-[var(--text)]",
-      "hover:border-[var(--accent)] hover:bg-[#24303d]",
+      "min-h-[48px] w-full min-w-0 max-w-full text-balance",
       selected
-        ? "ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-[var(--bg)]"
-        : "",
+        ? "border-[var(--accent)] bg-[#1a2820] text-[var(--text)]"
+        : "border-[var(--border)] bg-[var(--panel)] text-[var(--text)]",
+      "hover:border-[var(--accent)] hover:bg-[#24303d]",
     ].join(" ");
+
+  /** 探索・戦闘メインの 2×2。列幅を minmax(0,1fr) で固定し段間ズレを出さない */
+  const mainActionGridClass = "action-grid-2x2 w-full";
 
   /** アイテム列が多いとき用（メニュー内スクロール） */
   const itemListScrollClass =
@@ -394,7 +399,7 @@ export function HackAndSlashGame({
       const row: ActionEntry[] = [exploreA, itemsA, magicA, descendA];
 
       return (
-        <div className="grid grid-cols-2 grid-rows-2 gap-2" role="group" aria-label="行動">
+        <div className={mainActionGridClass} role="group" aria-label="行動">
           {row.map((a) => {
             const i = actions.indexOf(a);
             return (
@@ -438,11 +443,7 @@ export function HackAndSlashGame({
       const row: ActionEntry[] = [fightA, abilA, itemA, runA];
 
       return (
-        <div
-          className="grid grid-cols-2 grid-rows-2 gap-2"
-          role="group"
-          aria-label="戦闘コマンド"
-        >
+        <div className={mainActionGridClass} role="group" aria-label="戦闘コマンド">
           {row.map((a) => {
             const i = actions.indexOf(a);
             return (
@@ -910,6 +911,11 @@ export function HackAndSlashGame({
 
       {inCombat && game.enemy ? (
         <CombatHud enemy={game.enemy} player={p} />
+      ) : compactExploreMain ? (
+        <div
+          className="explore-hud-spacer mb-2 shrink-0"
+          aria-hidden="true"
+        />
       ) : null}
 
       <div className="sr-only" aria-live="polite" aria-atomic="true">
@@ -948,9 +954,9 @@ export function HackAndSlashGame({
         <div
           className={
             compactExploreMain
-              ? "h-[104px] shrink-0 overflow-hidden"
+              ? "min-h-[104px] shrink-0"
               : compactCombatMain
-                ? "h-[104px] shrink-0 overflow-hidden"
+                ? "min-h-[104px] shrink-0"
                 : "touch-scroll-y max-h-[min(50dvh,20rem)] min-h-[104px] shrink-0 overflow-y-auto overscroll-y-contain"
           }
         >
