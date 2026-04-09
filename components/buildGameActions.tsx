@@ -40,6 +40,8 @@ import {
   orderedInventoryForMenu,
   useItemExplore,
 } from "@/lib/game/core";
+import { isDemoEdition } from "@/lib/game/edition";
+import { DEMO_DEEPEST_FLOOR } from "@/lib/game/editionLimits";
 import type { GameState, SpellId } from "@/lib/game/types";
 import type { Dispatch, SetStateAction } from "react";
 
@@ -205,12 +207,19 @@ export function buildGameActions(
       EXPLORE_CASTABLE_SPELLS.includes(s),
     );
 
-    const canDescend = game.stairsVisible && game.floor < 10;
+    const descendReachable =
+      !isDemoEdition() || game.floor < DEMO_DEEPEST_FLOOR;
+    const canDescend =
+      game.stairsVisible && game.floor < 10 && descendReachable;
     const descendTitle = canDescend
       ? "次の階へ進みます"
       : game.floor >= 10
         ? "ここが最下層です"
-        : "探索で階段を見つけると選べます";
+        : !game.stairsVisible
+          ? "探索で階段を見つけると選べます"
+          : isDemoEdition() && !descendReachable
+            ? `体験版は${DEMO_DEEPEST_FLOOR}階まで（有料版で続き）`
+            : "次の階へ進みます";
 
     return [
       {

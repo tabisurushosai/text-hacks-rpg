@@ -46,6 +46,10 @@ import {
 } from "./combatMath";
 import { BALANCE_TUNING } from "./gameConfig";
 import {
+  DEMO_DESCEND_BLOCKED_LINE,
+  demoAllowsDescendFromFloor,
+} from "./editionLimits";
+import {
   flavorAmbientDetail,
   flavorAbyssCalm,
   flavorQuiet,
@@ -954,6 +958,13 @@ export function explore(state: GameState): GameState {
 export function descendStairs(state: GameState): GameState {
   if (state.phase !== "explore" || !state.stairsVisible) return state;
   if (state.floor >= 10) return state;
+
+  if (!demoAllowsDescendFromFloor(state.floor)) {
+    return {
+      ...state,
+      log: [...state.log, DEMO_DESCEND_BLOCKED_LINE],
+    };
+  }
 
   const nf = state.floor + 1;
   const lines = ["階段を下りた。", `${nf}階に着いた。`];

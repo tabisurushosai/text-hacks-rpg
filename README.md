@@ -12,6 +12,13 @@
 制作の方針・世界観の軸は **[docs/VISION.md](docs/VISION.md)** にまとめています。  
 **開発引き継ぎ（新しいチャット用）** は **[docs/HANDOFF.md](docs/HANDOFF.md)** を参照してください。
 
+### 体験版と有料版（同一リポジトリ）
+
+- **未設定（デフォルト）＝有料版（フル）** … 通常の `npm run dev` / `npm run build`。10 階・ボスまで。`localStorage` は従来キー。
+- **体験版** … `NEXT_PUBLIC_GAME_EDITION=demo`（例: `npm run dev:demo` / `npm run build:demo`）。**3 階まで**（それより下の階段は進めない）。セーブキーは別名で、フル版と混ざらない。
+
+`.env.example` を参照。
+
 ---
 
 ## 即プレイ
@@ -84,11 +91,31 @@ npm run dev
 | コマンド | 説明 |
 |----------|------|
 | `npm run dev` | 開発サーバー |
+| `npm run dev:demo` | 体験版（3階まで）で開発 |
 | `npm run dev:turbo` | Turbopack 版（必要なら） |
 | `npm test` | ユニットテスト（Vitest） |
-| `npm run build` | 本番ビルド |
-| `npm run start` | 本番サーバー（`build` 後） |
+| `npm run build` | 本番静的書き出し（`out/`。Vercel もこれ） |
+| `npm run build:demo` | 体験版の静的書き出し |
+| `npm run preview` | `out/` をローカルで確認（`build` 後） |
+| `npm run pack:full` | 有料版ブラウザ用 **ZIP** を `dist/` に生成 |
+| `npm run pack:demo` | 体験版 ZIP を `dist/` に生成 |
 | `npm run lint` | Lint |
+
+静的エクスポート（`output: 'export'`）のため **`next start` は使いません**。本番相当の確認は `npm run preview` で。
+
+---
+
+## 配布用 ZIP（BOOTH 等での販売）
+
+1. **有料版（フル）**: `npm run pack:full`  
+2. **体験版**: `npm run pack:demo`  
+3. 生成物は `dist/` の `text-hacks-rpg-*-browser-v0.1.0.zip`（バージョンは `package.json` に準拠）
+
+ZIP 内の **`README.txt`** が購入者向け（ローカルサーバーの立て方）。  
+販売の流れ・100 円出品・チェックリストは **[docs/SALES_BOOTH.md](docs/SALES_BOOTH.md)**。  
+素材の権利確認は **[docs/ASSETS_AND_RIGHTS.md](docs/ASSETS_AND_RIGHTS.md)**。
+
+**形式の目安**: いまの形は **ブラウザ＋軽いローカルサーバー**（Unity 不要）。同人の ZIP 販売と相性がよいです。
 
 ---
 

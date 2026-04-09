@@ -30,6 +30,10 @@
 
 | パス | 役割 |
 |------|------|
+| `next.config.ts` | `output: 'export'`（ZIP 配布・静的ホスト用） |
+| `scripts/pack-zip.cjs` | `pack:full` / `pack:demo` で ZIP 化 |
+| `docs/BUYER_README.txt` | ZIP 同梱の購入者向け起動手順 |
+| `docs/SALES_BOOTH.md` | BOOTH・100円・チェックリスト |
 | `app/page.tsx` | タイトル ↔ ゲーム切替、続きから、セーブ読み込み失敗時のメッセージ |
 | `components/HackAndSlashGame.tsx` | メイン UI（ログ、戦闘 HUD、ヘルプ、キーボード、aria-live、クリア画面） |
 | `components/buildGameActions.tsx` | 探索・戦闘の行動ボタン一覧（`smith` 分解含む） |
@@ -41,7 +45,9 @@
 | `lib/game/data.ts` | 敵テンプレ、武器・防具、呪文、`ENEMY_EXTRA_LOOT`、`rollLootQualityFlairLine` 等 |
 | `lib/game/runEpithet.ts` | クリア時の称号一行 |
 | `lib/game/balance.ts` | 職倍率、敵・ボス補正、`JOB_META` |
-| `lib/game/gameConfig.ts` | ドロップ率・装備上限、`PERSISTENCE_KEYS`、セーブ版定数 |
+| `lib/game/edition.ts` | `NEXT_PUBLIC_GAME_EDITION` による **体験版 demo / 有料版 full**（未設定＝有料版） |
+| `lib/game/editionLimits.ts` | 体験版の最深階など |
+| `lib/game/gameConfig.ts` | ドロップ率・装備上限、`getPersistenceKeys()`（エディション別 localStorage）、セーブ版定数 |
 | `lib/game/combatMath.ts` | 物理/敵ダメ・防具軽減・レベルアップ処理 |
 | `lib/game/persistence.ts` | セーブ JSON、メタ記録、`normalizeExploreMenu`（`smith`） |
 | `lib/game/spellEffects.ts` | 戦闘・探索での呪文効果 |
@@ -73,7 +79,7 @@
 
 ## セーブ・メタ
 
-- キー名は **`lib/game/gameConfig.ts`** の `PERSISTENCE_KEYS`。
+- キー名は **`lib/game/gameConfig.ts`** の **`getPersistenceKeys()`**（体験版は `text-hacks-rpg-demo-*`、有料版は従来の `text-hacks-rpg-*`）。
 - セーブは **v2** で書き出し、**v1 も読込時に正規化**。破損時は削除＋タイトルでエラー表示（`app/page.tsx`）。
 - メタ（最深階・踏破回数・冒険開始回数）は **別キー**。タイトルには表示しないが、`HackAndSlashGame` の `pendingClientEvent` 経由で死亡・クリア時に更新。
 - **`pendingClientEvent`**: `GameState` に一時載せ、UI が処理後に `null` に。二重処理防止に `metaHandledRef`（トークン）あり。
@@ -82,7 +88,9 @@
 
 ## 品質・テスト
 
-- `npm run build` — 本番ビルド＋型＋ ESLint（Next 組み込み）。
+- `npm run build` — **静的書き出し**（`output: 'export'`）で `out/`。Vercel もこれ。
+- `npm run preview` — `out/` を `serve` で確認（`next start` は使わない）。
+- `npm run pack:full` / `pack:demo` — 販売用 ZIP を `dist/` に生成（中身は `docs/BUYER_README.txt` を `README.txt` として同梱）。
 - `npm run lint` — ESLint。
 - `npm test` — Vitest（`lib/**/*.test.ts`）。`vitest.config.ts` で `@/` エイリアスあり。
 - **GitHub Actions**（任意）: サンプルを `.github/workflows/ci.yml` に置くとリモートで同等チェック。

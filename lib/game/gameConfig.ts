@@ -4,6 +4,8 @@
  * 敵テンプレ・呪文定義は data.ts、職倍率は balance.ts に残す。
  */
 
+import { isDemoEdition } from "./edition";
+
 export const BALANCE_TUNING = {
   /** 生成武器の攻撃力上限（data の生成ループでも使用） */
   weaponAtkMax: 15,
@@ -43,10 +45,19 @@ export const BALANCE_TUNING = {
   },
 } as const;
 
-export const PERSISTENCE_KEYS = {
-  save: "text-hacks-rpg-save-v1",
-  meta: "text-hacks-rpg-meta-v1",
-} as const;
+/** 体験版と有料版で localStorage を分離（誤ってフルセーブを体験版で読まない） */
+export function getPersistenceKeys() {
+  if (isDemoEdition()) {
+    return {
+      save: "text-hacks-rpg-demo-save-v1",
+      meta: "text-hacks-rpg-demo-meta-v1",
+    } as const;
+  }
+  return {
+    save: "text-hacks-rpg-save-v1",
+    meta: "text-hacks-rpg-meta-v1",
+  } as const;
+}
 
 /** セーブ JSON の版。古い版は読み込み時に正規化する */
 export const SAVE_PAYLOAD_VERSION = 2 as const;

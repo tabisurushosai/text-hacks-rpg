@@ -4,6 +4,8 @@ import { Noto_Serif_JP } from "next/font/google";
 import { useCallback, useEffect, useState } from "react";
 import { useGameBgm } from "@/components/GameBgmContext";
 import { JOB_META, JOB_ORDER } from "@/lib/game/balance";
+import { isDemoEdition } from "@/lib/game/edition";
+import { DEMO_DEEPEST_FLOOR } from "@/lib/game/editionLimits";
 import type { JobId } from "@/lib/game/types";
 import {
   AUTHOR_FEEDBACK_X_HANDLE,
@@ -129,9 +131,16 @@ export function TitleScreen({
         <p className="mb-3 font-sans text-[11px] tracking-[0.35em] text-[var(--muted)] uppercase">
           Text descent
         </p>
-        <h1 className="mb-8 text-[clamp(2.5rem,12vw,3.75rem)] font-black leading-none tracking-[0.02em] text-[var(--text)] drop-shadow-[0_0_40px_rgba(91,140,122,0.25)]">
-          層底譚
-        </h1>
+        <div className="mb-8 flex flex-col items-center gap-2">
+          <h1 className="text-[clamp(2.5rem,12vw,3.75rem)] font-black leading-none tracking-[0.02em] text-[var(--text)] drop-shadow-[0_0_40px_rgba(91,140,122,0.25)]">
+            層底譚
+          </h1>
+          {isDemoEdition() ? (
+            <span className="rounded border border-[var(--accent)]/55 bg-[#15221c]/90 px-2.5 py-1 font-sans text-[11px] font-medium tracking-wide text-[var(--accent)]">
+              体験版（{DEMO_DEEPEST_FLOOR}階まで）
+            </span>
+          ) : null}
+        </div>
 
         {continueError ? (
           <div

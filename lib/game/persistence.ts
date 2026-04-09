@@ -1,6 +1,6 @@
 import {
+  getPersistenceKeys,
   META_RECORDS_VERSION,
-  PERSISTENCE_KEYS,
   SAVE_LEGACY_VERSION,
   SAVE_PAYLOAD_VERSION,
 } from "./gameConfig";
@@ -123,10 +123,8 @@ export function tryLoadGameFromJson(json: string): LoadSaveResult {
 export function saveGameToLocalStorage(state: GameState): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(
-      PERSISTENCE_KEYS.save,
-      serializeGameState(state),
-    );
+    const { save } = getPersistenceKeys();
+    window.localStorage.setItem(save, serializeGameState(state));
   } catch {
     /* quota / private mode */
   }
@@ -140,7 +138,8 @@ export function loadGameFromLocalStorage(): GameState | null {
 export function loadGameFromLocalStorageDetailed(): LoadSaveResult {
   if (typeof window === "undefined") return { ok: false, reason: "missing" };
   try {
-    const raw = window.localStorage.getItem(PERSISTENCE_KEYS.save);
+    const { save } = getPersistenceKeys();
+    const raw = window.localStorage.getItem(save);
     if (!raw) return { ok: false, reason: "missing" };
     return tryLoadGameFromJson(raw);
   } catch {
@@ -151,7 +150,8 @@ export function loadGameFromLocalStorageDetailed(): LoadSaveResult {
 export function clearSaveFromLocalStorage(): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.removeItem(PERSISTENCE_KEYS.save);
+    const { save } = getPersistenceKeys();
+    window.localStorage.removeItem(save);
   } catch {
     /* ignore */
   }
@@ -160,7 +160,8 @@ export function clearSaveFromLocalStorage(): void {
 export function hasSaveInLocalStorage(): boolean {
   if (typeof window === "undefined") return false;
   try {
-    return Boolean(window.localStorage.getItem(PERSISTENCE_KEYS.save));
+    const { save } = getPersistenceKeys();
+    return Boolean(window.localStorage.getItem(save));
   } catch {
     return false;
   }
@@ -169,7 +170,8 @@ export function hasSaveInLocalStorage(): boolean {
 export function loadMetaRecords(): MetaRecords {
   if (typeof window === "undefined") return emptyMetaRecords();
   try {
-    const raw = window.localStorage.getItem(PERSISTENCE_KEYS.meta);
+    const { meta } = getPersistenceKeys();
+    const raw = window.localStorage.getItem(meta);
     if (!raw) return emptyMetaRecords();
     const o = JSON.parse(raw) as Partial<MetaRecords>;
     if (o.version !== META_RECORDS_VERSION) return emptyMetaRecords();
@@ -191,7 +193,8 @@ export function loadMetaRecords(): MetaRecords {
 export function saveMetaRecords(r: MetaRecords): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(PERSISTENCE_KEYS.meta, JSON.stringify(r));
+    const { meta } = getPersistenceKeys();
+    window.localStorage.setItem(meta, JSON.stringify(r));
   } catch {
     /* ignore */
   }

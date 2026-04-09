@@ -17,6 +17,10 @@
 
 # production
 /build
+/dist/
+
+# 配布 ZIP をリポジトリに含めない（必要ならローカルで `npm run pack:full` 等）
+*.zip
 
 # misc
 .DS_Store

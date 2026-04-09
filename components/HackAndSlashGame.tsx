@@ -5,6 +5,8 @@ import { CombatHud } from "@/components/CombatHud";
 import { useGameBgm } from "@/components/GameBgmContext";
 import { JOB_META, JOB_ORDER, RUN_TARGET_MINUTES } from "@/lib/game/balance";
 import { expUntilLevelUp, initialGameState } from "@/lib/game/core";
+import { isDemoEdition } from "@/lib/game/edition";
+import { DEMO_DEEPEST_FLOOR } from "@/lib/game/editionLimits";
 import { runClearEpithet } from "@/lib/game/runEpithet";
 import {
   formatArmorEquipLine,
@@ -908,6 +910,13 @@ export function HackAndSlashGame({
           </div>
         </div>
       </header>
+
+      {isDemoEdition() ? (
+        <p className="mb-2 shrink-0 rounded border border-[var(--accent)]/35 bg-[#121a16]/80 px-2 py-1.5 text-center text-[11px] leading-snug text-[var(--muted)]">
+          体験版は{DEMO_DEEPEST_FLOOR}
+          階まで。有料版ですべての階と層底の主までプレイできます。
+        </p>
+      ) : null}
 
       {inCombat && game.enemy ? (
         <CombatHud enemy={game.enemy} player={p} />

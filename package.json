@@ -4,9 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:demo": "cross-env NEXT_PUBLIC_GAME_EDITION=demo next dev",
     "dev:turbo": "next dev --turbopack",
     "build": "next build",
-    "start": "next start",
+    "build:demo": "cross-env NEXT_PUBLIC_GAME_EDITION=demo next build",
+    "preview": "npx --yes serve out -l 3000",
+    "pack:full": "next build && node scripts/pack-zip.cjs full",
+    "pack:demo": "npm run build:demo && node scripts/pack-zip.cjs demo",
     "lint": "next lint",
     "test": "vitest run"
   },
@@ -21,6 +25,8 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "archiver": "^7.0.1",
+    "cross-env": "^10.1.0",
     "eslint": "^9",
     "eslint-config-next": "^15.2.4",
     "tailwindcss": "^4",
