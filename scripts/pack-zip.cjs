@@ -43,6 +43,11 @@ async function main() {
   const buyerReadme = path.join(root, "docs", "BUYER_README.txt");
   fs.copyFileSync(buyerReadme, path.join(stage, "README.txt"));
 
+  const startBat = path.join(root, "docs", "START_windows.bat");
+  if (fs.existsSync(startBat)) {
+    fs.copyFileSync(startBat, path.join(stage, "START.bat"));
+  }
+
   fs.mkdirSync(distRoot, { recursive: true });
   const zipPath = path.join(distRoot, `${folderName}.zip`);
 

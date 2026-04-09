@@ -34,6 +34,8 @@
 | `scripts/pack-zip.cjs` | `pack:full` / `pack:demo` で ZIP 化 |
 | `docs/BUYER_README.txt` | ZIP 同梱の購入者向け起動手順 |
 | `docs/SALES_BOOTH.md` | BOOTH・100円・チェックリスト |
+| `docs/DISTRIBUTION_UX.md` | 購入者の手間・URL 併記・exe のコスパ（作者向け） |
+| `docs/START_windows.bat` | ZIP 同梱時 `START.bat` の元ファイル（Windows + Node） |
 | `app/page.tsx` | タイトル ↔ ゲーム切替、続きから、セーブ読み込み失敗時のメッセージ |
 | `components/HackAndSlashGame.tsx` | メイン UI（ログ、戦闘 HUD、ヘルプ、キーボード、aria-live、クリア画面） |
 | `components/buildGameActions.tsx` | 探索・戦闘の行動ボタン一覧（`smith` 分解含む） |
