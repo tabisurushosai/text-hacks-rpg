@@ -34,6 +34,9 @@
 | `scripts/pack-zip.cjs` | `pack:full` / `pack:demo` で ZIP 化 |
 | `docs/BUYER_README.txt` | ZIP 同梱の購入者向け起動手順 |
 | `docs/SALES_BOOTH.md` | BOOTH・100円・チェックリスト |
+| `docs/BOOTH_SPECIFIC_COMMERCIAL_TRANSACTIONS.md` | 特定商取引法に基づく表記（BOOTH 貼り付け用テンプレ） |
+| `docs/BGM_RIGHTS_MEMO.md` | BGM（Suno 等）の権利メモ・商品文のたたき台 |
+| `LICENSE` | プロプライエタリ・ZIP 再配布禁止など |
 | `docs/DISTRIBUTION_UX.md` | 購入者の手間・URL 併記・exe のコスパ（作者向け） |
 | `docs/START_windows.bat` | ZIP 同梱時 `START.bat` の元ファイル（Windows + Node） |
 | `app/page.tsx` | タイトル ↔ ゲーム切替、続きから、セーブ読み込み失敗時のメッセージ |

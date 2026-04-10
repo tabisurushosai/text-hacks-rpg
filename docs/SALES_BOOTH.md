@@ -21,7 +21,7 @@
 - [ ] `npm run pack:full` で ZIP を作り、自分の PC で `README.txt` の手順どおりに起動確認
 - [ ] **BGM・フォント・画像**の再配布・商用利用が許されているか確認（自作 or ライセンス確認）→ [ASSETS_AND_RIGHTS.md](./ASSETS_AND_RIGHTS.md)
 - [ ] 商品文に **「ローカルサーバー必須」** と **推奨ブラウザ** を書く（誤解で返金トラブルが減る）
-- [ ] BOOTH の **特定商取引法に基づく表記**（個人ならテンプレに沿って連絡先・支払い・返品不可など）
+- [ ] BOOTH の **特定商取引法に基づく表記** … **[BOOTH_SPECIFIC_COMMERCIAL_TRANSACTIONS.md](./BOOTH_SPECIFIC_COMMERCIAL_TRANSACTIONS.md)** のテンプレを埋めて設定
 - [ ] 価格・ファイル更新したら **版メモ**（商品説明に「v0.1.0」など。`package.json` の version と揃えるとよい）
 
 ## ZIP の作り方（開発者向け）
