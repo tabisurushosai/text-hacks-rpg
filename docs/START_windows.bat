@@ -1,14 +1,15 @@
 @echo off
 chcp 65001 >nul
+if exist "%~dp0PLAY.bat" (
+  call "%~dp0PLAY.bat"
+  exit /b %ERRORLEVEL%
+)
 cd /d "%~dp0"
 title Text Descent - local server
 echo.
-echo [層底譚] 簡易起動（Node.js がパソコンに入っている必要があります）
+echo [層底譚] PLAY.bat が見つかりません。ZIP を解凍し直すか README.txt を参照してください。
 echo.
-echo 1. 下に URL が出たら、ブラウザで http://localhost:3456 を開いてください。
-echo 2. 終了するときはこの黒い画面を閉じるか、Ctrl+C を押してください。
-echo.
-echo 初回は npx のダウンロードに数十秒かかることがあります。
+echo 手動: このフォルダで npx --yes serve . -l 3456 を実行し、ブラウザで http://localhost:3456 を開いてください。
 echo.
 npx --yes serve . -l 3456
 echo.

@@ -8,7 +8,7 @@ ZIP や有料配布をする前に、**自分以外の素材**が混ざってい
 |------|------|------|
 | BGM | `public/bgm/*.mp3` | **詳細は [BGM_RIGHTS_MEMO.md](./BGM_RIGHTS_MEMO.md)**（Suno / いわゆる Snow.ai の整理、チェックリスト、商品文のたたき台）。課金プランで生成した旨・規約 URL・記録の保管を推奨。 |
 | アイコン | `public/icon.svg` 等 | 同様 |
-| フォント | `TitleScreen` の `next/font`（Google Fonts） | 通常は OFL だが、**商品に同梱するフォントファイルがある場合**は別途確認 |
+| フォント | `globals.css` の Google Fonts `@import`（Noto Serif JP） | オンライン時に読み込み。オフライン ZIP では明朝系にフォールバック。フォントファイルを商品に同梱する場合は別途確認 |
 
 ## 最低限やること
 

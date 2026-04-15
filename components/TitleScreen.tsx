@@ -1,6 +1,5 @@
 "use client";
 
-import { Noto_Serif_JP } from "next/font/google";
 import { useCallback, useEffect, useState } from "react";
 import { useGameBgm } from "@/components/GameBgmContext";
 import { JOB_META, JOB_ORDER } from "@/lib/game/balance";
@@ -11,12 +10,6 @@ import {
   AUTHOR_FEEDBACK_X_HANDLE,
   AUTHOR_FEEDBACK_X_URL,
 } from "@/lib/siteMeta";
-
-const titleSerif = Noto_Serif_JP({
-  weight: ["600", "900"],
-  subsets: ["latin"],
-  display: "swap",
-});
 
 type TitleScreenProps = {
   onNewGame: (job: JobId) => void;
@@ -87,7 +80,7 @@ export function TitleScreen({
 
   return (
     <div
-      className={`relative flex min-h-[100dvh] touch-manipulation flex-col items-center justify-center overflow-hidden px-6 py-10 ${titleSerif.className}`}
+      className="font-title-serif relative flex min-h-[100dvh] touch-manipulation flex-col items-center justify-center overflow-hidden px-6 py-10"
       onPointerDownCapture={() => {
         if (titleBgmEnabled) tryPlayTitleBgm();
       }}

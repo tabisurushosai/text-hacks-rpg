@@ -2,7 +2,7 @@
 
 ## ブラウザ版 ZIP でよいか / Unity が必要か
 
-- **このリポジトリの形（Next.js を静的書き出しした ZIP）＝ブラウザで遊ぶ版**が、作者の工数的にはいちばんシンプルです。購入者は **Node か Python でローカルサーバーを 1 回立てる**か、Windows では **`START.bat`**（Node 必須）を試す（`README.txt` に手順あり）。**Unity やインストーラは不要**です。
+- **このリポジトリの形（Next.js を静的書き出しした ZIP）＝ブラウザで遊ぶ版**が、作者の工数的にはいちばんシンプルです。購入者は **Windows なら `PLAY.bat`、macOS なら `PLAY.command` をダブルクリック**（いずれも **Node.js 必須**。ブラウザまで自動で開く）か、README の手動手順。**Unity やインストーラは不要**です。
 - **正直なところ**: 「コマンド 2 つ」は**すでに Node/Python がある人**向け。無い層には**買いにくさ**が出やすい。**対策のコスパがいちばん良いのは、商品説明に「ブラウザですぐ遊べる URL（Vercel 等）」を無料で載せ、ZIP はオフライン特典にする**こと。詳しくは **[DISTRIBUTION_UX.md](./DISTRIBUTION_UX.md)**。
 - **exe**は買い手の操作は単純化しうるが、**作者の工数・コード署名・誤検知**のコストが乗る。**やりたくなければ必須ではない**。
 
@@ -11,8 +11,8 @@
 1. **商品ページ**に次を載せる:
    - **キャッチ**（1〜2 行）＋ **スクショ 3〜5 枚**
    - **おすすめ**: **そのまま遊べる URL**（例: `https://xxxx.vercel.app`）を**目立つ位置に**。ZIP は「ダウンロード特典・オフライン用」と書くと購入の心理的ハードルが下がりやすい。
-   - **動作環境**: URL 版はブラウザのみ。ZIP 版は **Windows なら `START.bat`（Node 要）** または README の Python / 手動手順。
-   - **同梱物**: フォルダ＋`README.txt`＋**`START.bat`（Windows）**＋ゲーム本体（`index.html` と `_next` 等）
+   - **動作環境**: URL 版はブラウザのみ。ZIP 版は **`PLAY.bat`（Windows）／`PLAY.command`（Mac）（Node 要）** または README の手動手順。
+   - **同梱物**: フォルダ＋`README.txt`＋**`PLAY.bat`・`local-server.cmd`・`PLAY.command`・`START.bat`（互換）**＋ゲーム本体（`index.html` と `_next` 等）
 2. **価格**: **100 円**は BOOTH で可能。まず「販売の流れ・説明文・更新の仕方」に慣れるのに向いています。
 3. **体験版との併用**: 無料 or 投げ銭で **体験版 ZIP**（`npm run pack:demo`）、有料で **フル版 ZIP**（`npm run pack:full`）。同じ作品でも **セーブキーが別**なので混線しにくいです。
 

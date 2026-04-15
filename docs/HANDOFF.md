@@ -38,7 +38,9 @@
 | `docs/BGM_RIGHTS_MEMO.md` | BGM（Suno 等）の権利メモ・商品文のたたき台 |
 | `LICENSE` | プロプライエタリ・ZIP 再配布禁止など |
 | `docs/DISTRIBUTION_UX.md` | 購入者の手間・URL 併記・exe のコスパ（作者向け） |
-| `docs/START_windows.bat` | ZIP 同梱時 `START.bat` の元ファイル（Windows + Node） |
+| `docs/PLAY.bat` / `docs/local-server.cmd` | ZIP 同梱：解凍後ダブルクリックで serve ＋ブラウザ起動（Windows、Node 要） |
+| `docs/PLAY.command` | 同上（macOS、Node 要。ZIP 生成時に実行権付与を試行） |
+| `docs/START_windows.bat` | ZIP 同梱時 `START.bat` の元（`PLAY.bat` があれば委譲） |
 | `app/page.tsx` | タイトル ↔ ゲーム切替、続きから、セーブ読み込み失敗時のメッセージ |
 | `components/HackAndSlashGame.tsx` | メイン UI（ログ、戦闘 HUD、ヘルプ、キーボード、aria-live、クリア画面） |
 | `components/buildGameActions.tsx` | 探索・戦闘の行動ボタン一覧（`smith` 分解含む） |

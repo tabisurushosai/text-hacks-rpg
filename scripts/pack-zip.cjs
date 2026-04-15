@@ -43,6 +43,27 @@ async function main() {
   const buyerReadme = path.join(root, "docs", "BUYER_README.txt");
   fs.copyFileSync(buyerReadme, path.join(stage, "README.txt"));
 
+  const copyIfExists = (fromRel, toName) => {
+    const from = path.join(root, "docs", fromRel);
+    if (fs.existsSync(from)) {
+      const dest = path.join(stage, toName);
+      fs.copyFileSync(from, dest);
+      return dest;
+    }
+    return null;
+  };
+
+  copyIfExists("local-server.cmd", "local-server.cmd");
+  copyIfExists("PLAY.bat", "PLAY.bat");
+  const playMac = copyIfExists("PLAY.command", "PLAY.command");
+  if (playMac) {
+    try {
+      fs.chmodSync(playMac, 0o755);
+    } catch {
+      /* Windows 等では無視 */
+    }
+  }
+
   const startBat = path.join(root, "docs", "START_windows.bat");
   if (fs.existsSync(startBat)) {
     fs.copyFileSync(startBat, path.join(stage, "START.bat"));
